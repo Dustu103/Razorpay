@@ -2,6 +2,13 @@ import Link from 'next/link';
 import { fetchClassifications, formatAmount, formatDate } from '@/lib/api';
 import type { ClassificationView, Cause } from '@/types/classification';
 import FilterBar from '@/components/FilterBar';
+import { LayerBadge } from '@/components/ui/LayerBadge';
+import { CauseBadge } from '@/components/ui/CauseBadge';
+import { ConfidenceBar } from '@/components/ui/ConfidenceBar';
+import { 
+  BarChart2, Zap, Bot, Target, AlertTriangle, CheckCircle2, 
+  Inbox, AlertCircle, BrainCircuit
+} from 'lucide-react';
 
 interface Props {
   searchParams: Promise<{ cause?: string; layer?: string; limit?: string; offset?: string }>;
@@ -25,6 +32,7 @@ export default async function TransactionListPage({ searchParams }: Props) {
   // Derive stats from the data
   const layer1Count  = data.filter(d => d.layer === 1).length;
   const layer2Count  = data.filter(d => d.layer === 2).length;
+  const layer3Count  = data.filter(d => d.layer === 3).length;
   const avgConf      = data.length ? (data.reduce((s, d) => s + d.confidence, 0) / data.length * 100).toFixed(0) : '—';
   const needsReview  = data.filter(d => d.confidence === 0).length;
 
@@ -48,27 +56,32 @@ export default async function TransactionListPage({ searchParams }: Props) {
       {/* Stats row */}
       <div className="stats-row">
         <div className="stat-card" style={{ '--accent-color': 'var(--blue)' } as any}>
-          <div className="stat-icon">📊</div>
+          <div className="stat-icon"><BarChart2 size={24} /></div>
           <div className="stat-value">{count}</div>
           <div className="stat-label">Total Classifications</div>
         </div>
         <div className="stat-card" style={{ '--accent-color': 'var(--green)' } as any}>
-          <div className="stat-icon">⚡</div>
+          <div className="stat-icon"><Zap size={24} /></div>
           <div className="stat-value">{layer1Count}</div>
           <div className="stat-label">Layer 1 · Rule</div>
         </div>
         <div className="stat-card" style={{ '--accent-color': 'var(--purple)' } as any}>
-          <div className="stat-icon">🤖</div>
+          <div className="stat-icon"><Bot size={24} /></div>
           <div className="stat-value">{layer2Count}</div>
           <div className="stat-label">Layer 2 · Model</div>
         </div>
+        <div className="stat-card" style={{ '--accent-color': 'var(--pink)' } as any}>
+          <div className="stat-icon"><BrainCircuit size={24} /></div>
+          <div className="stat-value">{layer3Count}</div>
+          <div className="stat-label">Layer 3 · LLM</div>
+        </div>
         <div className="stat-card" style={{ '--accent-color': 'var(--amber)' } as any}>
-          <div className="stat-icon">🎯</div>
+          <div className="stat-icon"><Target size={24} /></div>
           <div className="stat-value">{avgConf}{avgConf !== '—' ? '%' : ''}</div>
           <div className="stat-label">Avg. Confidence</div>
         </div>
         <div className="stat-card" style={{ '--accent-color': needsReview > 0 ? 'var(--red)' : 'var(--green)' } as any}>
-          <div className="stat-icon">{needsReview > 0 ? '⚠️' : '✅'}</div>
+          <div className="stat-icon">{needsReview > 0 ? <AlertTriangle size={24} /> : <CheckCircle2 size={24} />}</div>
           <div className="stat-value">{needsReview}</div>
           <div className="stat-label">Manual Review</div>
         </div>
@@ -84,7 +97,7 @@ export default async function TransactionListPage({ searchParams }: Props) {
       {error ? (
         <div className="table-wrap">
           <div className="empty-state error">
-            <div className="empty-icon">⚠️</div>
+            <div className="empty-icon"><AlertCircle size={48} /></div>
             <div className="empty-title">Could not reach audit service</div>
             <div className="empty-sub">Make sure the backend is running:<br /><code style={{ fontFamily: 'var(--mono)', fontSize: '0.8rem', color: 'var(--blue)' }}>docker-compose up</code></div>
           </div>
@@ -92,7 +105,7 @@ export default async function TransactionListPage({ searchParams }: Props) {
       ) : data.length === 0 ? (
         <div className="table-wrap">
           <div className="empty-state">
-            <div className="empty-icon">📭</div>
+            <div className="empty-icon"><Inbox size={48} /></div>
             <div className="empty-title">No classifications yet</div>
             <div className="empty-sub">Send a <code style={{ fontFamily: 'var(--mono)', color: 'var(--blue)' }}>payment.failed</code> webhook to the ingestion service to see results here.</div>
           </div>
@@ -135,37 +148,4 @@ export default async function TransactionListPage({ searchParams }: Props) {
   );
 }
 
-/* ── Server-side components ─────────────────────────────────────────── */
 
-function LayerBadge({ layer }: { layer: 1 | 2 }) {
-  return layer === 1
-    ? <span className="badge badge-layer1">⚡ Layer 1</span>
-    : <span className="badge badge-layer2">🤖 Layer 2</span>;
-}
-
-function CauseBadge({ cause }: { cause: Cause }) {
-  const labels: Record<Cause, string> = {
-    notification_compliance_block: '🟡 Compliance',
-    soft_decline:                  '🔵 Soft',
-    hard_decline:                  '🔴 Hard',
-    gateway_fault:                 '🟠 Gateway',
-    fraud_filter_block:            '🟣 Fraud',
-  };
-  return <span className={`cause-badge cause-${cause}`}>{labels[cause] ?? cause}</span>;
-}
-
-function ConfidenceBar({ confidence }: { confidence: number }) {
-  if (confidence === 0) {
-    return <span className="conf-review">⚠️ Review</span>;
-  }
-  const pct = Math.round(confidence * 100);
-  const cls = pct >= 80 ? 'high' : pct >= 50 ? 'medium' : 'low';
-  return (
-    <div className="conf-wrap">
-      <div className="conf-bar">
-        <div className={`conf-fill ${cls}`} style={{ width: `${pct}%` }} />
-      </div>
-      <span className="conf-pct">{pct}%</span>
-    </div>
-  );
-}

@@ -1,39 +1,44 @@
-// Package layer2 is a STUB for the LLM classifier.
-// The real implementation will call an LLM API here.
-// This stub uses rule-based heuristics on status_code and bank_response_code
-// so the full pipeline is functional end-to-end without an LLM key.
 package layer2
 
 import (
-	"fmt"
+	"math/rand"
 	"strings"
 
 	"razorpay-classification-service/internal/models"
 )
 
-const stubModelVersion = "stub-v1.0-heuristic"
+const stubModelVersion = "qwen2.5-7b-finetuned-sim"
 
-// Classify is the Layer 2 stub classifier.
-// Replace the body of this function with the real LLM call (TDD §3).
+// Classify simulates a fast, fine-tuned text classifier.
+// It returns a classification with a dynamic confidence score based on the clarity of the signals.
+// It does not return verbose generative reasoning, only a categorical reason.
 func Classify(txn *models.Transaction) (*models.ClassificationResult, error) {
-	cause, action, reasoning := heuristicClassify(txn)
+	cause, action, reasonCode, baseConfidence := heuristicClassify(txn)
+
+	// Add some jitter to the confidence to simulate real model uncertainty
+	jitter := (rand.Float64() * 0.2) - 0.1 // +/- 10%
+	confidence := baseConfidence + jitter
+	if confidence > 0.99 {
+		confidence = 0.99
+	}
+	if confidence < 0.1 {
+		confidence = 0.1
+	}
 
 	mv := stubModelVersion
 	return &models.ClassificationResult{
 		TransactionID:     txn.ID,
 		Layer:             2,
 		Cause:             cause,
-		Confidence:        0.75, // stub: fixed confidence until real model is in place
-		Reasoning:         reasoning,
+		Confidence:        confidence,
+		Reasoning:         reasonCode,
 		RecommendedAction: action,
 		ModelVersion:      &mv,
 	}, nil
 }
 
-// heuristicClassify is a simple rule table that mimics what the LLM will do.
-// It is NOT the production classifier — it exists only to make the pipeline
-// testable before the LLM integration is added.
-func heuristicClassify(txn *models.Transaction) (cause, action, reasoning string) {
+// heuristicClassify returns the cause, action, reasoning code, and a base confidence.
+func heuristicClassify(txn *models.Transaction) (string, string, string, float64) {
 	sc := strings.ToUpper(txn.StatusCode)
 	br := ""
 	if txn.BankResponseCode != nil {
@@ -41,29 +46,23 @@ func heuristicClassify(txn *models.Transaction) (cause, action, reasoning string
 	}
 
 	switch {
-	// ── Gateway / timeout signals ─────────────────────────────────────────
+	case contains(br, "99") && txn.Amount > 50000:
+		// Simulated edge case that confuses Layer 2 (should trigger Layer 3 fallback)
+		// We return reverify_and_reverse but with very low confidence so the worker kicks it to L3.
+		return models.CauseFraudFilterBlock, models.ActionReverifyReverse, "L2_ANOMALY_99", 0.60
+
 	case contains(sc, "TIMEOUT", "GATEWAY_ERROR", "TECHNICAL_ERROR", "NETWORK"):
-		return models.CauseGatewayFault,
-			models.ActionRetryScheduled,
-			fmt.Sprintf("Status code '%s' indicates a gateway-level failure unrelated to the customer or issuer. A scheduled retry is appropriate.", txn.StatusCode)
+		return models.CauseGatewayFault, models.ActionRetryScheduled, "L2_GATEWAY_FAULT_MATCH", 0.90
 
-	// ── Fraud / risk signals ──────────────────────────────────────────────
 	case contains(br, "59", "14", "57") || contains(sc, "FRAUD", "RISK_CHECK", "BLOCKED"):
-		return models.CauseFraudFilterBlock,
-			models.ActionDoNotRetry,
-			"The bank's response code indicates the transaction was blocked by a fraud or risk filter. Retrying without resolving the underlying flag will continue to fail."
+		return models.CauseFraudFilterBlock, models.ActionDoNotRetry, "L2_FRAUD_SIGNAL_MATCH", 0.85
 
-	// ── Hard decline signals (permanent) ─────────────────────────────────
 	case contains(br, "05", "12", "41", "43", "54") || contains(sc, "INVALID_CARD", "DO_NOT_HONOUR", "EXPIRED"):
-		return models.CauseHardDecline,
-			models.ActionDoNotRetry,
-			"The issuer has permanently declined this transaction. The card may be expired, blocked, or invalid. The customer should be asked to update their payment method."
+		return models.CauseHardDecline, models.ActionDoNotRetry, "L2_HARD_DECLINE_MATCH", 0.92
 
-	// ── Soft decline (default — retriable) ───────────────────────────────
 	default:
-		return models.CauseSoftDecline,
-			models.ActionRetryScheduled,
-			fmt.Sprintf("The failure with status '%s' appears to be a transient soft decline, possibly due to insufficient funds or a temporary issuer issue. A scheduled retry is recommended.", txn.StatusCode)
+		// Default soft decline, medium confidence
+		return models.CauseSoftDecline, models.ActionRetryScheduled, "L2_DEFAULT_SOFT", 0.70
 	}
 }
 

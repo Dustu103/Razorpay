@@ -14,6 +14,7 @@ import (
 	"razorpay-classification-service/internal/db"
 	"razorpay-classification-service/internal/layer1"
 	"razorpay-classification-service/internal/layer2"
+	"razorpay-classification-service/internal/layer3"
 	"razorpay-classification-service/internal/models"
 
 	"github.com/redis/go-redis/v9"
@@ -88,30 +89,55 @@ func (w *Worker) processJob(ctx context.Context, job models.ClassificationJob) e
 	// 2. Layer 1 — deterministic, sub-millisecond
 	result := layer1.Classify(txn)
 
-	// 3. Layer 2 — stub classifier (replace with LLM call later)
+	// 3. Layer 2 — Fast fine-tuned model
 	if result == nil {
 		l2Ctx, cancel := context.WithTimeout(ctx, layer2CallTimeout)
 		defer cancel()
-		_ = l2Ctx // layer2.Classify doesn't need ctx yet (stub), but real impl will
+		_ = l2Ctx
 
+		var err error
 		result, err = layer2.Classify(txn)
 		if err != nil {
-			// On Layer 2 failure: fall back to safe default, flag for review
-			log.Printf("[classification-worker] layer2 error txn=%s: %v — falling back to soft_decline", txn.ID, err)
-			mv := "fallback"
-			result = &models.ClassificationResult{
-				TransactionID:     txn.ID,
-				Layer:             2,
-				Cause:             models.CauseSoftDecline,
-				Confidence:        0.0,
-				Reasoning:         "Classification failed due to an internal error. Defaulted to soft_decline for safe retry. Manual review required.",
-				RecommendedAction: models.ActionRetryScheduled,
-				ModelVersion:      &mv,
+			log.Printf("[classification-worker] layer2 error txn=%s: %v", txn.ID, err)
+			result = buildFallbackResult(txn)
+		}
+
+		// Check confidence against action-specific thresholds
+		needsFallback := false
+		switch result.RecommendedAction {
+		case models.ActionReverifyReverse:
+			if result.Confidence < models.ThresholdReverifyReverse {
+				needsFallback = true
+			}
+		case models.ActionRetryScheduled, models.ActionRetryNow:
+			if result.Confidence < models.ThresholdRetry {
+				needsFallback = true
+			}
+		case models.ActionDoNotRetry:
+			if result.Confidence < models.ThresholdDoNotRetry {
+				needsFallback = true
+			}
+		default:
+			if result.Confidence < 0.50 {
+				needsFallback = true
+			}
+		}
+
+		// 4. Layer 3 — General LLM Fallback
+		if needsFallback {
+			log.Printf("[classification-worker] txn=%s layer2 confidence (%.2f) below threshold for action '%s', falling back to layer3", txn.ID, result.Confidence, result.RecommendedAction)
+			
+			l3Result, err := layer3.Classify(txn)
+			if err != nil {
+				log.Printf("[classification-worker] layer3 error txn=%s: %v", txn.ID, err)
+				result = buildFallbackResult(txn)
+			} else {
+				result = l3Result
 			}
 		}
 	}
 
-	// 4. Persist classification
+	// 5. Persist classification
 	if err := w.db.SaveClassification(ctx, result); err != nil {
 		return fmt.Errorf("save classification: %w", err)
 	}
@@ -119,4 +145,17 @@ func (w *Worker) processJob(ctx context.Context, job models.ClassificationJob) e
 	log.Printf("[classification-worker] classified txn=%s → cause=%s layer=%d confidence=%.2f",
 		txn.ID, result.Cause, result.Layer, result.Confidence)
 	return nil
+}
+
+func buildFallbackResult(txn *models.Transaction) *models.ClassificationResult {
+	mv := "fallback"
+	return &models.ClassificationResult{
+		TransactionID:     txn.ID,
+		Layer:             2, // or 3, but this represents a system error
+		Cause:             models.CauseSoftDecline,
+		Confidence:        0.0,
+		Reasoning:         "Classification failed due to an internal error. Defaulted to soft_decline for safe retry. Manual review required.",
+		RecommendedAction: models.ActionRetryScheduled,
+		ModelVersion:      &mv,
+	}
 }

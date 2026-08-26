@@ -22,6 +22,10 @@ docs/
 │       ├── data-pipeline.md         ← End-to-end data flow
 │       └── ...
 │
+├── ai-service/                      ← Machine Learning pipelines
+│   ├── notebooks/                   ← Synthetic data generation & exploration
+│   └── scripts/                     ← Fine-tuning and validation scripts
+│
 ├── (Co-located Docs)                ← Service-specific docs live beside their code:
 │   ├── backend/ingestion-service/docs/  ← Ingestion API & LLD
 │   ├── backend/classification-service/docs/ ← Classification LLD

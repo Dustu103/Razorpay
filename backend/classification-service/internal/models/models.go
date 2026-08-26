@@ -49,3 +49,10 @@ const (
 	ActionDoNotRetry       = "do_not_retry"
 	ActionReverifyReverse  = "reverify_and_reverse"
 )
+
+// Confidence Thresholds for Layer 2 predictions.
+const (
+	ThresholdReverifyReverse = 0.85
+	ThresholdRetry           = 0.55
+	ThresholdDoNotRetry      = 0.55
+)

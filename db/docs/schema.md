@@ -27,7 +27,7 @@ erDiagram
     CLASSIFICATIONS {
         uuid id PK
         uuid transaction_id FK
-        smallint layer "1 or 2"
+        smallint layer "1, 2, or 3"
         text cause
         numeric confidence "0.000 to 1.000"
         text reasoning
@@ -70,7 +70,7 @@ erDiagram
 |--------|------|----------|---------|-------|
 | `id` | `uuid` | No | `gen_random_uuid()` | PK |
 | `transaction_id` | `uuid` | No | — | FK → transactions.id |
-| `layer` | `smallint` | No | — | CHECK IN (1, 2) |
+| `layer` | `smallint` | No | — | CHECK IN (1, 2, 3) |
 | `cause` | `text` | No | — | One of 5 causes |
 | `confidence` | `numeric(4,3)` | No | — | 0.000 – 1.000 |
 | `reasoning` | `text` | No | — | Human-readable explanation |

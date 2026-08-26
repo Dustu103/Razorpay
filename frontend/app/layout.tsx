@@ -1,4 +1,5 @@
 import type { Metadata } from 'next';
+import { Zap } from 'lucide-react';
 import './globals.css';
 
 export const metadata: Metadata = {
@@ -13,7 +14,9 @@ export default function RootLayout({ children }: { children: React.ReactNode }) 
         <header className="header">
           <div className="header-inner">
             <div className="header-brand">
-              <div className="header-logo-wrap">⚡</div>
+              <div className="header-logo-wrap">
+                <Zap size={20} style={{ color: 'var(--blue)' }} />
+              </div>
               <div>
                 <div className="header-title">Classifier Inspector</div>
                 <div className="header-sub">Feature 1 · Pillar B — Diagnose</div>
