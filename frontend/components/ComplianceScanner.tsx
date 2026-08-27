@@ -102,6 +102,15 @@ export default function ComplianceScanner() {
               )}
             </div>
 
+            <div style={{display: 'flex', gap: '1rem', marginBottom: '1.5rem'}}>
+              <span className="badge" style={{background: '#e2e8f0', color: '#475569', fontSize: '0.8rem', padding: '4px 10px', borderRadius: '16px'}}>
+                Layer 1 (Deterministic): {result.layer1_violations || 0}
+              </span>
+              <span className="badge" style={{background: '#ede9fe', color: '#6d28d9', fontSize: '0.8rem', padding: '4px 10px', borderRadius: '16px'}}>
+                Layer 2 (LLM): {result.layer2_violations || 0}
+              </span>
+            </div>
+
             {result.violations && result.violations.length > 0 && (
               <div className="violations-list" style={{display: 'flex', flexDirection: 'column', gap: '1rem'}}>
                 {result.violations.map((v: any, idx: number) => (
@@ -113,9 +122,14 @@ export default function ComplianceScanner() {
                   }}>
                     <div style={{display: 'flex', justifyContent: 'space-between', marginBottom: '0.5rem'}}>
                       <strong>Screen: {v.screen_name}</strong>
-                      <span className={\`badge badge-\${v.severity.toLowerCase()}\`} style={{fontSize: '0.75rem', padding: '2px 8px', borderRadius: '12px', background: v.severity==='High'?'#fee2e2':v.severity==='Medium'?'#fef3c7':'#dbeafe', color: v.severity==='High'?'#991b1b':v.severity==='Medium'?'#92400e':'#1e40af'}}>
-                        {v.severity} Severity
-                      </span>
+                      <div style={{display: 'flex', gap: '0.5rem'}}>
+                        <span className="badge" style={{fontSize: '0.7rem', padding: '2px 8px', borderRadius: '12px', background: '#f1f5f9', color: '#64748b'}}>
+                          {v.detected_by === 'layer1_deterministic' ? 'Layer 1' : 'Layer 2 (LLM)'}
+                        </span>
+                        <span className={\`badge badge-\${v.severity.toLowerCase()}\`} style={{fontSize: '0.75rem', padding: '2px 8px', borderRadius: '12px', background: v.severity==='High'?'#fee2e2':v.severity==='Medium'?'#fef3c7':'#dbeafe', color: v.severity==='High'?'#991b1b':v.severity==='Medium'?'#92400e':'#1e40af'}}>
+                          {v.severity} Severity
+                        </span>
+                      </div>
                     </div>
                     <div style={{marginBottom: '0.5rem'}}><strong>Rule Broken:</strong> {v.rule_broken}</div>
                     <div style={{color: '#059669', fontSize: '0.9rem'}}><strong>Suggested Fix:</strong> {v.fix_suggestion}</div>
