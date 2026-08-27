@@ -1,8 +1,6 @@
 # Feature 1 — Root-Cause Classifier: Documentation Index
 
-> **Project:** Razorpay AI Buildathon 2026 · Feature 1 (Pillar B — Diagnose)
-
-This directory contains all technical and operational documentation for Feature 1.
+> **Project:** Razorpay AI Buildathon 2026 · Feature 1 & 2 (Pillar B — Diagnose)
 
 ---
 
@@ -10,96 +8,93 @@ This directory contains all technical and operational documentation for Feature 
 
 ```
 docs/
-├── README.md                             ← You are here
+├── README.md                                  ← You are here
 │
-├── architecture/                         ← System-wide docs ONLY (not service-specific)
-│   ├── hld.md                            ← System HLD (service map, data flow, topology)
+├── architecture/                              ← System-wide only (cross-service HLD & flow diagrams)
+│   ├── hld.md
 │   └── flow-diagrams/
-│       └── data-pipeline.md              ← End-to-end webhook-to-inference flow
+│       └── data-pipeline.md
 │
-├── classification-service/               ← All docs for the classification-service
+├── classification-service/                    ← All docs for the classification pipeline
 │   ├── README.md
-│   ├── ml-pipeline.md                    ← ML Lifecycle, Feature Engineering, Training & Ensemble Logic
-│   ├── multi-llm-integration.md          ← Concurrent Groq + Gemini LLM tie-breaker architecture
-│   └── testing-and-results.md            ← Test harnesses, empirical accuracy metrics, bottlenecks
+│   ├── ml-pipeline.md
+│   ├── multi-llm-integration.md
+│   ├── testing-and-results.md
+│   ├── decisions/                             ← ADRs scoped to this service
+│   │   ├── ADR-001-random-forest-layer2.md
+│   │   ├── ADR-002-groq-over-openai.md
+│   │   ├── ADR-003-redis-queue-over-http.md
+│   │   ├── ADR-004-go-for-classification-service.md
+│   │   └── ADR-005-multi-llm-ensemble.md
+│   └── runbooks/                              ← Ops runbooks scoped to this service
+│       ├── RB-001-restart-classification-worker.md
+│       ├── RB-002-debug-stuck-redis-queue.md
+│       └── RB-003-run-e2e-test-pipeline.md
 │
-├── compliance-service/                 ← All docs for the mandate compliance scanner (Feature 2)
+├── compliance-service/                        ← All docs for the compliance scanner (Feature 2)
 │   ├── README.md
-│   └── architecture.md                   ← API design, LLM Prompt Logic & UI Schema
+│   ├── architecture.md
+│   ├── testing-and-results.md
+│   ├── decisions/
+│   │   └── ADR-007-compliance-json-schema-input.md
+│   └── runbooks/
+│       └── RB-005-debug-compliance-violations.md
 │
-├── frontend-dashboard/                   ← All docs for the frontend dashboard
+├── frontend-dashboard/                        ← All docs for the Next.js dashboard
 │   ├── README.md
-│   └── architecture.md                   ← SSR architecture, Simulator Panel, 4-Layer badge system
+│   ├── architecture.md
+│   └── decisions/
+│       └── ADR-006-nextjs-ssr-dashboard.md
 │
-├── decisions/                            ← Architecture Decision Records (ADR)
-│   ├── README.md                         ← ADR index & status
-│   ├── ADR-001-random-forest-layer2.md
-│   ├── ADR-002-groq-over-openai.md
-│   ├── ADR-003-redis-queue-over-http.md
-│   ├── ADR-004-go-for-classification-service.md
-│   ├── ADR-005-multi-llm-ensemble.md
-│   └── ADR-006-nextjs-ssr-dashboard.md
-│
-└── runbooks/                             ← Operational runbooks for on-call engineers
-    ├── README.md                         ← Runbook index
-    ├── RB-001-restart-classification-worker.md
-    ├── RB-002-debug-stuck-redis-queue.md
-    ├── RB-003-run-e2e-test-pipeline.md
-    └── RB-004-rotate-llm-api-keys.md
+└── operations/                                ← Cross-service / infrastructure runbooks
+    └── runbooks/
+        └── RB-004-rotate-llm-api-keys.md
 ```
 
-> **Convention:** When a new service is created (e.g. `notification-service`), create a matching
-> `docs/notification-service/` folder. The `docs/architecture/` folder is reserved **only** for
-> system-wide, cross-service diagrams and the HLD.
+> **Convention:** Every new service gets its own `docs/<service-name>/` folder containing
+> `decisions/` and `runbooks/` subfolders. `docs/architecture/` is reserved for system-wide
+> cross-service diagrams only. `docs/operations/` is for shared infrastructure runbooks.
 
 ---
 
 ## 🔗 Quick Links
 
-### Architecture
+### System Architecture
 | Document | Purpose |
 |----------|---------|
-| [HLD](./architecture/hld.md) | Where to start — full system picture |
-| [Data Pipeline](./architecture/flow-diagrams/data-pipeline.md) | End-to-end flow from Webhook to Inference |
+| [HLD](./architecture/hld.md) | Full system picture — start here |
+| [Data Pipeline](./architecture/flow-diagrams/data-pipeline.md) | End-to-end webhook-to-inference flow |
 
 ### Classification Service
 | Document | Purpose |
 |----------|---------|
-| [ML Pipeline](./classification-service/ml-pipeline.md) | ML architecture, SMOTE balancing, Model training & Tie-breaker logic |
-| [Multi-LLM Integration](./classification-service/multi-llm-integration.md) | Concurrent Groq + Gemini Inference Architecture |
-| [Testing & Results](./classification-service/testing-and-results.md) | Test scripts, accuracy benchmarks, stress-test results |
+| [ML Pipeline](./classification-service/ml-pipeline.md) | ML architecture, SMOTE, Random Forest, Ensemble logic |
+| [Multi-LLM Integration](./classification-service/multi-llm-integration.md) | Concurrent Groq + Gemini inference |
+| [Testing & Results](./classification-service/testing-and-results.md) | Benchmarks, stress-test results, accuracy |
+| [ADR-001](./classification-service/decisions/ADR-001-random-forest-layer2.md) | Why Random Forest for Layer 2 |
+| [ADR-002](./classification-service/decisions/ADR-002-groq-over-openai.md) | Why Groq as primary LLM |
+| [ADR-003](./classification-service/decisions/ADR-003-redis-queue-over-http.md) | Why Redis queue over sync HTTP |
+| [ADR-004](./classification-service/decisions/ADR-004-go-for-classification-service.md) | Why Go for the classification-service |
+| [ADR-005](./classification-service/decisions/ADR-005-multi-llm-ensemble.md) | Why concurrent Multi-LLM ensemble |
+| [RB-001](./classification-service/runbooks/RB-001-restart-classification-worker.md) | Restart stuck classification worker |
+| [RB-002](./classification-service/runbooks/RB-002-debug-stuck-redis-queue.md) | Debug growing Redis queue |
+| [RB-003](./classification-service/runbooks/RB-003-run-e2e-test-pipeline.md) | Post-deployment E2E validation |
+
+### Compliance Service (Feature 2)
+| Document | Purpose |
+|----------|---------|
+| [Architecture](./compliance-service/architecture.md) | API design, LLM prompt logic, RBI rule mapping |
+| [Testing & Results](./compliance-service/testing-and-results.md) | 13/13 E2E test pass results |
+| [ADR-007](./compliance-service/decisions/ADR-007-compliance-json-schema-input.md) | Why JSON schema over web scraper |
+| [RB-005](./compliance-service/runbooks/RB-005-debug-compliance-violations.md) | Debug false positives / negatives |
 
 ### Frontend Dashboard
 | Document | Purpose |
 |----------|---------|
-| [Frontend Architecture](./frontend-dashboard/architecture.md) | SSR Dashboard, Webhook Simulator & 4-Layer UI |
+| [Architecture](./frontend-dashboard/architecture.md) | SSR, Webhook Simulator, 4-Layer badge system |
+| [ADR-006](./frontend-dashboard/decisions/ADR-006-nextjs-ssr-dashboard.md) | Why Next.js SSR App Router |
 
-### Compliance Scanner (Feature 2)
+### Operations (Cross-Service)
 | Document | Purpose |
 |----------|---------|
-| [Compliance Architecture](./compliance-service/architecture.md) | JSON-based LLM UI scanning, Prompt logic, RBI mapping |
-
-### Architecture Decisions (ADRs)
-| ADR | Decision |
-|-----|----------|
-| [ADR-001](./decisions/ADR-001-random-forest-layer2.md) | Why Random Forest for Layer 2 |
-| [ADR-002](./decisions/ADR-002-groq-over-openai.md) | Why Groq as primary LLM |
-| [ADR-003](./decisions/ADR-003-redis-queue-over-http.md) | Why Redis queue over sync HTTP |
-| [ADR-004](./decisions/ADR-004-go-for-classification-service.md) | Why Go for the classification-service |
-| [ADR-005](./decisions/ADR-005-multi-llm-ensemble.md) | Why concurrent Multi-LLM over sequential fallback |
-| [ADR-006](./decisions/ADR-006-nextjs-ssr-dashboard.md) | Why Next.js SSR for the dashboard |
-
-### Runbooks
-| Runbook | Trigger |
-|---------|---------|
-| [RB-001](./runbooks/RB-001-restart-classification-worker.md) | Worker is stuck / not consuming jobs |
-| [RB-002](./runbooks/RB-002-debug-stuck-redis-queue.md) | Redis queue is growing but not draining |
-| [RB-003](./runbooks/RB-003-run-e2e-test-pipeline.md) | Post-deployment E2E validation |
-| [RB-004](./runbooks/RB-004-rotate-llm-api-keys.md) | Groq or Gemini API key expired |
-
-### Co-located LLDs (next to service code)
-| Document | Purpose |
-|----------|---------|
-| [Ingestion LLD](../backend/ingestion-service/docs/lld.md) | Ingestion service Low-Level Design |
-| [Audit API](../backend/audit-service/docs/api.md) | Audit service endpoints |
-| [Database Schema](../db/docs/schema.md) | Schema, ERD, dedup strategy |
+| [RB-004](./operations/runbooks/RB-004-rotate-llm-api-keys.md) | Rotate Groq / Gemini API keys |
