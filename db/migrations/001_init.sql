@@ -29,7 +29,7 @@ CREATE INDEX IF NOT EXISTS idx_transactions_gateway_id
 CREATE TABLE IF NOT EXISTS classifications (
     id                  UUID        PRIMARY KEY DEFAULT gen_random_uuid(),
     transaction_id      UUID        NOT NULL REFERENCES transactions(id) ON DELETE CASCADE,
-    layer               SMALLINT    NOT NULL CHECK (layer IN (1, 2, 3)),
+    layer               SMALLINT    NOT NULL CHECK (layer IN (1, 2, 3, 4)),
     cause               TEXT        NOT NULL,           -- e.g. soft_decline, notification_compliance_block
     confidence          NUMERIC(4,3) NOT NULL,          -- 0.000 – 1.000
     reasoning           TEXT        NOT NULL,

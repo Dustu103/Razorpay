@@ -52,7 +52,8 @@ const (
 
 // Confidence Thresholds for Layer 2 predictions.
 const (
-	ThresholdReverifyReverse = 0.85
-	ThresholdRetry           = 0.55
-	ThresholdDoNotRetry      = 0.55
+	// Fine-tuned thresholds based on Random Forest confidence calibration
+	ThresholdReverifyReverse = 0.85 // Strict for extreme risk actions
+	ThresholdRetry           = 0.65 // Optimized for standard retries
+	ThresholdDoNotRetry      = 0.70 // Optimized for blocking actions
 )

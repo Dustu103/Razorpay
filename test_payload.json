@@ -1,0 +1,15 @@
+{
+  "event": "payment.failed",
+  "payload": {
+    "payment": {
+      "entity": {
+        "id": "txn_L2_test_003",
+        "status_code": "FAILED",
+        "acquirer_data": "51",
+        "amount": 50000,
+        "retry_count": 2,
+        "bank": "SBI"
+      }
+    }
+  }
+}

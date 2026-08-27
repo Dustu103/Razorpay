@@ -1,6 +1,6 @@
 // Package worker is the Redis queue consumer for the classification service.
 // It runs as a blocking loop: BLPOP from the queue → fetch transaction →
-// run Layer 1 → if no match, run Layer 2 stub → persist result.
+// run Layer 1 → if no match, run Layer 2 ML model → persist result.
 package worker
 
 import (
@@ -89,50 +89,73 @@ func (w *Worker) processJob(ctx context.Context, job models.ClassificationJob) e
 	// 2. Layer 1 — deterministic, sub-millisecond
 	result := layer1.Classify(txn)
 
-	// 3. Layer 2 — Fast fine-tuned model
+	// 3 & 4. Mixture of Experts (Layer 2 ML & Layer 3 LLM Concurrently)
 	if result == nil {
-		l2Ctx, cancel := context.WithTimeout(ctx, layer2CallTimeout)
-		defer cancel()
-		_ = l2Ctx
-
-		var err error
-		result, err = layer2.Classify(txn)
-		if err != nil {
-			log.Printf("[classification-worker] layer2 error txn=%s: %v", txn.ID, err)
-			result = buildFallbackResult(txn)
+		type layerResult struct {
+			res *models.ClassificationResult
+			err error
 		}
 
-		// Check confidence against action-specific thresholds
-		needsFallback := false
-		switch result.RecommendedAction {
-		case models.ActionReverifyReverse:
-			if result.Confidence < models.ThresholdReverifyReverse {
-				needsFallback = true
-			}
-		case models.ActionRetryScheduled, models.ActionRetryNow:
-			if result.Confidence < models.ThresholdRetry {
-				needsFallback = true
-			}
-		case models.ActionDoNotRetry:
-			if result.Confidence < models.ThresholdDoNotRetry {
-				needsFallback = true
-			}
-		default:
-			if result.Confidence < 0.50 {
-				needsFallback = true
-			}
+		l2Chan := make(chan layerResult, 1)
+		l3Chan := make(chan layerResult, 1)
+
+		go func() {
+			l2Ctx, cancel := context.WithTimeout(ctx, layer2CallTimeout)
+			defer cancel()
+			_ = l2Ctx
+			res, err := layer2.Classify(txn)
+			l2Chan <- layerResult{res, err}
+		}()
+
+		go func() {
+			res, err := layer3.Classify(txn)
+			l3Chan <- layerResult{res, err}
+		}()
+
+		l2Out := <-l2Chan
+		l3Out := <-l3Chan
+
+		if l2Out.err != nil {
+			log.Printf("[classification-worker] layer2 error txn=%s: %v", txn.ID, l2Out.err)
+			l2Out.res = buildFallbackResult(txn)
+		}
+		if l3Out.err != nil {
+			log.Printf("[classification-worker] layer3 error txn=%s: %v", txn.ID, l3Out.err)
+			l3Out.res = buildFallbackResult(txn)
 		}
 
-		// 4. Layer 3 — General LLM Fallback
-		if needsFallback {
-			log.Printf("[classification-worker] txn=%s layer2 confidence (%.2f) below threshold for action '%s', falling back to layer3", txn.ID, result.Confidence, result.RecommendedAction)
-			
-			l3Result, err := layer3.Classify(txn)
-			if err != nil {
-				log.Printf("[classification-worker] layer3 error txn=%s: %v", txn.ID, err)
-				result = buildFallbackResult(txn)
+		// Ensemble Logic
+		result = &models.ClassificationResult{
+			TransactionID: txn.ID,
+			Layer:         4, // Layer 4 designates Ensemble Output
+		}
+
+		if l2Out.res.Cause == l3Out.res.Cause {
+			// Agreement
+			result.Cause = l2Out.res.Cause
+			result.RecommendedAction = l2Out.res.RecommendedAction
+			result.Confidence = 0.99
+			result.Reasoning = fmt.Sprintf("[Layer 4 · Ensemble Agreement] ML (Conf: %.2f) and LLM (Conf: %.2f) agreed. %s", l2Out.res.Confidence, l3Out.res.Confidence, l3Out.res.Reasoning)
+			mv := "ensemble-agreement"
+			result.ModelVersion = &mv
+		} else {
+			// Disagreement
+			if l2Out.res.Confidence >= 0.85 {
+				// Trust ML due to high confidence on internal data
+				result.Cause = l2Out.res.Cause
+				result.RecommendedAction = l2Out.res.RecommendedAction
+				result.Confidence = l2Out.res.Confidence
+				result.Reasoning = fmt.Sprintf("[Layer 4 · Ensemble ML Override] Disagreement. Trusted ML due to high confidence (%.2f). LLM thought: %s", l2Out.res.Confidence, l3Out.res.Cause)
+				mv := "ensemble-ml-override"
+				result.ModelVersion = &mv
 			} else {
-				result = l3Result
+				// Trust LLM as tie-breaker
+				result.Cause = l3Out.res.Cause
+				result.RecommendedAction = l3Out.res.RecommendedAction
+				result.Confidence = l3Out.res.Confidence
+				result.Reasoning = fmt.Sprintf("[Layer 4 · Ensemble LLM Tie-break] Disagreement. Trusted LLM due to low ML confidence (%.2f). LLM reasoning: %s", l2Out.res.Confidence, l3Out.res.Reasoning)
+				mv := "ensemble-llm-tiebreak"
+				result.ModelVersion = &mv
 			}
 		}
 	}
