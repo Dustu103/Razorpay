@@ -18,6 +18,8 @@ docs/
 │
 ├── architecture/
 │   ├── hld.md                       ← High-Level Design (system overview, service map)
+│   ├── ml-pipeline.md               ← ML Lifecycle, Feature Engineering, Training, & Ensemble Logic
+│   ├── testing-and-results.md       ← Test harnesses, empirical accuracy metrics, bottlenecks
 │   └── flow-diagrams/
 │       ├── data-pipeline.md         ← End-to-end data flow
 │       └── ...
@@ -41,7 +43,9 @@ docs/
 | Document | Purpose |
 |----------|---------|
 | [HLD](./architecture/hld.md) | Where to start — full system picture |
-| [Data Pipeline](./architecture/flow-diagrams/data-pipeline.md) | End-to-end flow |
+| [ML Pipeline](./architecture/ml-pipeline.md) | ML architecture, SMOTE balancing, Model training, & Tie-breaker logic |
+| [Data Pipeline](./architecture/flow-diagrams/data-pipeline.md) | End-to-end flow from Webhook to Inference |
+| [Testing & Results](./architecture/testing-and-results.md) | Test scripts, 96% offline accuracy, Groq API bottlenecks |
 | [Ingestion LLD](../backend/ingestion-service/docs/lld.md) | Ingestion service details |
 | [Audit API](../backend/audit-service/docs/api.md) | Audit endpoints |
 | [Database](../db/docs/schema.md) | Schema, ERD, dedup strategy |

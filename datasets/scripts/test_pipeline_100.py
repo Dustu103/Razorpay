@@ -13,11 +13,11 @@ def run_test():
     csv_path = os.path.join(base_dir, "..", "payment_failures", "razorpay_payment_failures_synthetic.csv")
     df = pd.read_csv(csv_path)
     
-    df_fraud = df[df['label_cause'] == 'fraud_filter_block'].sample(15, random_state=99)
-    df_compliance = df[df['label_cause'] == 'notification_compliance_block'].sample(15, random_state=99)
-    df_hard = df[df['label_cause'] == 'hard_decline'].sample(30, random_state=99)
-    df_gateway = df[df['label_cause'] == 'gateway_fault'].sample(20, random_state=99)
-    df_soft = df[df['label_cause'] == 'soft_decline'].sample(20, random_state=99)
+    df_fraud = df[df['label_cause'] == 'fraud_filter_block'].sample(10, random_state=42)
+    df_compliance = df[df['label_cause'] == 'notification_compliance_block'].sample(10, random_state=42)
+    df_hard = df[df['label_cause'] == 'hard_decline'].sample(10, random_state=42)
+    df_gateway = df[df['label_cause'] == 'gateway_fault'].sample(10, random_state=42)
+    df_soft = df[df['label_cause'] == 'soft_decline'].sample(10, random_state=42)
     
     test_df = pd.concat([df_fraud, df_compliance, df_hard, df_gateway, df_soft])
     
@@ -56,7 +56,6 @@ def run_test():
             
         try:
             resp = requests.post(webhook_url, json=payload)
-            time.sleep(2.5) # Avoid Groq 30 RPM rate limit
             if resp.status_code in [200, 202]:
                 data = resp.json()
                 db_txn_id = data.get('transaction_id')
