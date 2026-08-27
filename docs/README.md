@@ -34,9 +34,11 @@ docs/
 ├── compliance-service/                        ← All docs for the compliance scanner (Feature 2)
 │   ├── README.md
 │   ├── architecture.md
+│   ├── multi-llm-integration.md              ← Concurrent Groq + Gemini ensemble, Union strategy
 │   ├── testing-and-results.md
 │   ├── decisions/
-│   │   └── ADR-007-compliance-json-schema-input.md
+│   │   ├── ADR-007-compliance-json-schema-input.md
+│   │   └── ADR-008-multi-llm-union-strategy.md
 │   └── runbooks/
 │       └── RB-005-debug-compliance-violations.md
 │
@@ -84,9 +86,11 @@ docs/
 | Document | Purpose |
 |----------|---------|
 | [Architecture](./compliance-service/architecture.md) | API design, LLM prompt logic, RBI rule mapping |
+| [Multi-LLM Integration](./compliance-service/multi-llm-integration.md) | Concurrent Groq + Gemini ensemble, Union strategy, failure modes |
 | [Testing & Results](./compliance-service/testing-and-results.md) | 13/13 E2E test pass results |
 | [ADR-007](./compliance-service/decisions/ADR-007-compliance-json-schema-input.md) | Why JSON schema over web scraper |
-| [RB-005](./compliance-service/runbooks/RB-005-debug-compliance-violations.md) | Debug false positives / negatives |
+| [ADR-008](./compliance-service/decisions/ADR-008-multi-llm-union-strategy.md) | Why Union over Intersection for multi-LLM merge |
+| [RB-005](./compliance-service/runbooks/RB-005-debug-compliance-violations.md) | Debug Layer 1 / Layer 2 failures |
 
 ### Frontend Dashboard
 | Document | Purpose |
