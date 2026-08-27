@@ -1,5 +1,6 @@
 import type { Metadata } from 'next';
 import { Zap } from 'lucide-react';
+import Link from 'next/link';
 import './globals.css';
 
 export const metadata: Metadata = {
@@ -19,9 +20,14 @@ export default function RootLayout({ children }: { children: React.ReactNode }) 
               </div>
               <div>
                 <div className="header-title">Classifier Inspector</div>
-                <div className="header-sub">Feature 1 · Pillar B — Diagnose</div>
+                <div className="header-sub">Feature 1 & 2 · AI Buildathon</div>
               </div>
             </div>
+            
+            <nav style={{display: 'flex', gap: '1.5rem', alignItems: 'center', marginLeft: '2rem'}}>
+              <Link href="/" style={{color: 'var(--text-main)', textDecoration: 'none', fontWeight: 500, fontSize: '0.9rem'}}>Dashboard</Link>
+              <Link href="/compliance" style={{color: 'var(--text-main)', textDecoration: 'none', fontWeight: 500, fontSize: '0.9rem'}}>Compliance Scanner</Link>
+            </nav>
             <div className="header-right">
               <span className="header-badge">Razorpay AI Buildathon 2026</span>
               <div className="header-dot" title="Live" />

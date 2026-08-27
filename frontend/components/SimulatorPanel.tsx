@@ -1,9 +1,8 @@
 'use client';
 
-import { useState } from 'next/startTransition';
+import { useState } from 'react';
 import { simulateWebhook } from '@/app/actions';
 import { Play, Loader2, Code, Zap } from 'lucide-react';
-import React from 'react';
 
 const SCENARIOS = [
   {

@@ -23,6 +23,10 @@ docs/
 │   ├── multi-llm-integration.md          ← Concurrent Groq + Gemini LLM tie-breaker architecture
 │   └── testing-and-results.md            ← Test harnesses, empirical accuracy metrics, bottlenecks
 │
+├── compliance-service/                 ← All docs for the mandate compliance scanner (Feature 2)
+│   ├── README.md
+│   └── architecture.md                   ← API design, LLM Prompt Logic & UI Schema
+│
 ├── frontend-dashboard/                   ← All docs for the frontend dashboard
 │   ├── README.md
 │   └── architecture.md                   ← SSR architecture, Simulator Panel, 4-Layer badge system
@@ -69,6 +73,11 @@ docs/
 | Document | Purpose |
 |----------|---------|
 | [Frontend Architecture](./frontend-dashboard/architecture.md) | SSR Dashboard, Webhook Simulator & 4-Layer UI |
+
+### Compliance Scanner (Feature 2)
+| Document | Purpose |
+|----------|---------|
+| [Compliance Architecture](./compliance-service/architecture.md) | JSON-based LLM UI scanning, Prompt logic, RBI mapping |
 
 ### Architecture Decisions (ADRs)
 | ADR | Decision |
