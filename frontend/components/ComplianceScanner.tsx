@@ -123,8 +123,11 @@ export default function ComplianceScanner() {
                     <div style={{display: 'flex', justifyContent: 'space-between', marginBottom: '0.5rem'}}>
                       <strong>Screen: {v.screen_name}</strong>
                       <div style={{display: 'flex', gap: '0.5rem'}}>
-                        <span className="badge" style={{fontSize: '0.7rem', padding: '2px 8px', borderRadius: '12px', background: '#f1f5f9', color: '#64748b'}}>
-                          {v.detected_by === 'layer1_deterministic' ? 'Layer 1' : 'Layer 2 (LLM)'}
+                        <span className="badge" style={{fontSize: '0.7rem', padding: '2px 8px', borderRadius: '12px', background: v.detected_by === 'layer1_deterministic' ? '#f1f5f9' : '#ede9fe', color: v.detected_by === 'layer1_deterministic' ? '#64748b' : '#6d28d9'}}>
+                          {v.detected_by === 'layer1_deterministic' ? 'Layer 1' : 
+                           v.detected_by === 'layer2_llm_ensemble_consensus' ? 'Layer 2 (Groq + Gemini Consensus)' :
+                           v.detected_by === 'layer2_llm_groq' ? 'Layer 2 (Groq Only)' :
+                           v.detected_by === 'layer2_llm_gemini' ? 'Layer 2 (Gemini Only)' : 'Layer 2 (LLM)'}
                         </span>
                         <span className={\`badge badge-\${v.severity.toLowerCase()}\`} style={{fontSize: '0.75rem', padding: '2px 8px', borderRadius: '12px', background: v.severity==='High'?'#fee2e2':v.severity==='Medium'?'#fef3c7':'#dbeafe', color: v.severity==='High'?'#991b1b':v.severity==='Medium'?'#92400e':'#1e40af'}}>
                           {v.severity} Severity

@@ -7,7 +7,7 @@
 
 ## 1. Test Harness Overview
 
-The compliance-service is validated using a dedicated Python E2E test script located at `datasets/scripts/test_compliance.py`. Unlike the classification-service which uses a large batch benchmark, the compliance scanner is validated through **scenario-driven assertions** — each test case verifies a specific RBI rule or edge case.
+The compliance-service is validated using a dedicated Python E2E test script located at `datasets/scripts/test_compliance.py`. The scanner is validated through **scenario-driven assertions** — each test case verifies a specific RBI rule, pipeline layer, or edge case.
 
 To run the tests:
 ```bash
@@ -69,25 +69,23 @@ Results: 13 passed, 0 failed
 ──────────────────────────────────────────────────
 ```
 
-**Date:** 2026-08-27  
-**Environment:** Docker network `razorpay_default` | LLM: `groq/compound`
+**Date:** 2026-08-27 (v2.0 — Multi-LLM Ensemble)  
+**Environment:** Docker network `razorpay_default` | LLM: `groq/compound` + `gemini-3.6-flash` (concurrent)
 
 ---
 
-## 4. Observed LLM Output Quality
+## 4. Observed LLM Output Quality — Ensemble Behaviour
 
-On the worst-case test, the LLM consistently returned:
+On the worst-case test, Layer 2 runs `groq/compound` and `gemini-3.6-flash` concurrently via `ThreadPoolExecutor`. Violations are merged and tagged:
 
-| Screen | Rule Broken | Severity | Fix |
-|--------|-------------|----------|-----|
-| checkout_step_1 | False Urgency | Medium | Remove urgency language |
-| checkout_step_1 | Pre-checked consent | High | Default checkbox to unchecked |
-| checkout_step_1 | Hidden cancellation button | High | Make cancel button visible |
+| `detected_by` value | Meaning |
+|---------------------|---------|
+| `layer1_deterministic` | Caught by regex/state engine — no LLM cost |
+| `layer2_llm_groq` | Only Groq identified this pattern |
+| `layer2_llm_gemini` | Only Gemini identified this pattern |
+| `layer2_llm_ensemble_consensus` | **Both** models independently flagged the same rule on the same screen |
 
-The LLM correctly mapped:
-- **"Hurry, 5 mins left!"** → False Urgency
-- **`state: pre-checked`** → Pre-checked Consent
-- **`state: hidden` on cancel btn** → Hidden Cancellation Button
+Consensus violations are highest-confidence findings — two independent LLMs with different training data both agree.
 
 ---
 

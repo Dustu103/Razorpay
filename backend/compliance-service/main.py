@@ -11,6 +11,7 @@ import os
 import re
 import json
 import requests
+import concurrent.futures
 from fastapi import FastAPI, HTTPException
 from fastapi.middleware.cors import CORSMiddleware
 from pydantic import BaseModel
@@ -205,73 +206,101 @@ Do NOT return any text outside the JSON object.
 """
 
 
-def _call_llm(flow_json: str) -> List[dict]:
-    """Calls Groq, with Gemini fallback. Returns list of raw violation dicts."""
+def _call_groq(flow_json: str) -> List[dict]:
+    if not GROQ_API_KEY:
+        return []
+    try:
+        resp = requests.post(
+            "https://api.groq.com/openai/v1/chat/completions",
+            headers={"Authorization": f"Bearer {GROQ_API_KEY}", "Content-Type": "application/json"},
+            json={
+                "model": "groq/compound",
+                "messages": [
+                    {"role": "system", "content": LLM_SYSTEM_PROMPT},
+                    {"role": "user",   "content": flow_json},
+                ],
+                "temperature": 0.1,
+            },
+            timeout=10,
+        )
+        resp.raise_for_status()
+        content = resp.json()["choices"][0]["message"]["content"]
+        content = re.sub(r"^```json|^```|```$", "", content.strip(), flags=re.MULTILINE).strip()
+        return json.loads(content).get("llm_violations", [])
+    except Exception as e:
+        print(f"[Layer2] Groq failed: {e}")
+        return []
 
-    # --- Groq ---
-    if GROQ_API_KEY:
-        try:
-            resp = requests.post(
-                "https://api.groq.com/openai/v1/chat/completions",
-                headers={"Authorization": f"Bearer {GROQ_API_KEY}", "Content-Type": "application/json"},
-                json={
-                    "model": "groq/compound",
-                    "messages": [
-                        {"role": "system", "content": LLM_SYSTEM_PROMPT},
-                        {"role": "user",   "content": flow_json},
-                    ],
-                    "temperature": 0.1,
-                },
-                timeout=10,
-            )
-            resp.raise_for_status()
-            content = resp.json()["choices"][0]["message"]["content"]
-            content = re.sub(r"^```json|^```|```$", "", content.strip(), flags=re.MULTILINE).strip()
-            return json.loads(content).get("llm_violations", [])
-        except Exception as groq_err:
-            print(f"[Layer2] Groq failed: {groq_err}. Trying Gemini...")
 
-    # --- Gemini fallback ---
-    if GEMINI_API_KEY:
-        try:
-            url = (
-                "https://generativelanguage.googleapis.com/v1beta/models/"
-                f"gemini-3.6-flash:generateContent?key={GEMINI_API_KEY}"
-            )
-            resp = requests.post(
-                url,
-                json={
-                    "contents": [{"parts": [{"text": LLM_SYSTEM_PROMPT + "\n\n" + flow_json}]}],
-                    "generationConfig": {"temperature": 0.1, "responseMimeType": "application/json"},
-                },
-                timeout=15,
-            )
-            resp.raise_for_status()
-            content = resp.json()["candidates"][0]["content"]["parts"][0]["text"]
-            return json.loads(content.strip()).get("llm_violations", [])
-        except Exception as gemini_err:
-            print(f"[Layer2] Gemini failed: {gemini_err}. Skipping LLM layer.")
-
-    return []
+def _call_gemini(flow_json: str) -> List[dict]:
+    if not GEMINI_API_KEY:
+        return []
+    try:
+        url = (
+            "https://generativelanguage.googleapis.com/v1beta/models/"
+            f"gemini-3.6-flash:generateContent?key={GEMINI_API_KEY}"
+        )
+        resp = requests.post(
+            url,
+            json={
+                "contents": [{"parts": [{"text": LLM_SYSTEM_PROMPT + "\n\n" + flow_json}]}],
+                "generationConfig": {"temperature": 0.1, "responseMimeType": "application/json"},
+            },
+            timeout=15,
+        )
+        resp.raise_for_status()
+        content = resp.json()["candidates"][0]["content"]["parts"][0]["text"]
+        return json.loads(content.strip()).get("llm_violations", [])
+    except Exception as e:
+        print(f"[Layer2] Gemini failed: {e}")
+        return []
 
 
 def layer2_llm(flow: List[ScreenFlow]) -> List[Violation]:
+    if not flow:
+        return []
+
     flow_json = json.dumps([s.model_dump() for s in flow])
-    raw = _call_llm(flow_json)
-    violations = []
-    for v in raw:
-        try:
-            violations.append(Violation(
-                screen_name=v["screen_name"],
-                element_id=v.get("element_id"),
-                rule_broken=v["rule_broken"],
-                severity=v.get("severity", "Medium"),
-                fix_suggestion=v["fix_suggestion"],
-                detected_by="layer2_llm",
-            ))
-        except Exception:
-            continue
-    return violations
+    
+    raw_groq = []
+    raw_gemini = []
+
+    # Run both LLMs concurrently
+    with concurrent.futures.ThreadPoolExecutor(max_workers=2) as executor:
+        future_groq = executor.submit(_call_groq, flow_json)
+        future_gemini = executor.submit(_call_gemini, flow_json)
+        
+        raw_groq = future_groq.result()
+        raw_gemini = future_gemini.result()
+
+    violations_map = {}
+
+    def process_raw(raw_list: List[dict], detected_by: str):
+        for v in raw_list:
+            try:
+                screen_name = v["screen_name"]
+                rule_broken = v["rule_broken"]
+                key = (screen_name, rule_broken.lower())
+                
+                # If both find the exact same rule on the same screen, mark it as consensus
+                if key in violations_map:
+                    violations_map[key].detected_by = "layer2_llm_ensemble_consensus"
+                else:
+                    violations_map[key] = Violation(
+                        screen_name=screen_name,
+                        element_id=v.get("element_id"),
+                        rule_broken=rule_broken,
+                        severity=v.get("severity", "Medium"),
+                        fix_suggestion=v["fix_suggestion"],
+                        detected_by=detected_by,
+                    )
+            except Exception:
+                continue
+
+    process_raw(raw_groq, "layer2_llm_groq")
+    process_raw(raw_gemini, "layer2_llm_gemini")
+
+    return list(violations_map.values())
 
 
 # ── Aggregation ───────────────────────────────────────────────────────────────
