@@ -43,6 +43,8 @@ func New(database *db.DB, redisClient *redis.Client) *Worker {
 // Run starts the blocking consumer loop. Call in a goroutine or as main loop.
 func (w *Worker) Run(ctx context.Context) {
 	log.Printf("[classification-worker] listening on queue=%s", w.queueName)
+	sem := make(chan struct{}, 50) // Concurrency limit of 50
+
 	for {
 		select {
 		case <-ctx.Done():
@@ -73,9 +75,13 @@ func (w *Worker) Run(ctx context.Context) {
 			continue
 		}
 
-		if err := w.processJob(ctx, job); err != nil {
-			log.Printf("[classification-worker] job error txn=%s: %v", job.TransactionID, err)
-		}
+		sem <- struct{}{}
+		go func(j models.ClassificationJob) {
+			defer func() { <-sem }()
+			if err := w.processJob(ctx, j); err != nil {
+				log.Printf("[classification-worker] job error txn=%s: %v", j.TransactionID, err)
+			}
+		}(job)
 	}
 }
 

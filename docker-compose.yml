@@ -91,6 +91,7 @@ services:
       # Layer 3 LLM — free Groq key. Get one at https://console.groq.com
       # Leave empty to run in heuristic-fallback mode (pipeline still works)
       GROQ_API_KEY: ${GROQ_API_KEY:-}
+      GEMINI_API_KEY: ${GEMINI_API_KEY:-}
     depends_on:
       postgres:
         condition: service_healthy
