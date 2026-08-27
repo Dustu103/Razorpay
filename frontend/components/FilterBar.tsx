@@ -2,7 +2,7 @@
 
 import { useRouter, useSearchParams } from 'next/navigation';
 import { type Cause } from '@/types/classification';
-import { Zap, Bot, BrainCircuit } from 'lucide-react';
+import { Zap, Bot, BrainCircuit, Network } from 'lucide-react';
 
 const CAUSES: { value: Cause | ''; label: string }[] = [
   { value: '', label: 'All Causes' },
@@ -33,6 +33,7 @@ export default function FilterBar({ currentCause, currentLayer }: Props) {
     { value: '1', label: 'Layer 1', cls: 'active-green', icon: <Zap size={14} style={{ display: 'inline', verticalAlign: 'text-bottom', marginRight: '4px' }} /> },
     { value: '2', label: 'Layer 2', cls: 'active', icon: <Bot size={14} style={{ display: 'inline', verticalAlign: 'text-bottom', marginRight: '4px' }} /> },
     { value: '3', label: 'Layer 3', cls: 'active', icon: <BrainCircuit size={14} style={{ display: 'inline', verticalAlign: 'text-bottom', marginRight: '4px' }} /> },
+    { value: '4', label: 'Layer 4', cls: 'active', icon: <Network size={14} style={{ display: 'inline', verticalAlign: 'text-bottom', marginRight: '4px' }} /> },
   ];
 
   return (

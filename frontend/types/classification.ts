@@ -18,7 +18,7 @@ export interface ClassificationView {
   id: string;
   transaction_id: string;
   gateway_transaction_id: string;
-  layer: 1 | 2 | 3;
+  layer: 1 | 2 | 3 | 4;
   cause: Cause;
   confidence: number;
   reasoning: string;

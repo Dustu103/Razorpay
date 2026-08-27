@@ -1,7 +1,7 @@
-import { Zap, Bot, BrainCircuit } from 'lucide-react';
+import { Zap, Bot, BrainCircuit, Network } from 'lucide-react';
 
 interface Props {
-  layer: 1 | 2 | 3;
+  layer: 1 | 2 | 3 | 4;
   large?: boolean;
   subText?: string;
 }
@@ -25,9 +25,17 @@ export function LayerBadge({ layer, large = false, subText }: Props) {
     );
   }
 
+  if (layer === 3) {
+    return (
+      <span className={className}>
+        <BrainCircuit size={large ? 14 : 14} /> Layer 3{large ? ` · ${subText ?? 'General LLM'}` : ''}
+      </span>
+    );
+  }
+
   return (
     <span className={className}>
-      <BrainCircuit size={large ? 14 : 14} /> Layer 3{large ? ` · ${subText ?? 'General LLM'}` : ''}
+      <Network size={large ? 14 : 14} /> Layer 4{large ? ` · ${subText ?? 'Ensemble AI'}` : ''}
     </span>
   );
 }

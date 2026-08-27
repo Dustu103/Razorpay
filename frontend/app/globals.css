@@ -259,9 +259,15 @@ td { padding: 1rem 1.1rem; font-size: 0.85rem; vertical-align: middle; }
   border: 1px solid rgba(244,114,182,0.3);
   box-shadow: 0 0 10px rgba(244,114,182,0.08);
 }
+.badge-layer4 {
+  background: var(--purple-dim); color: var(--purple);
+  border: 1px solid rgba(192,132,252,0.3);
+  box-shadow: 0 0 10px rgba(192,132,252,0.08);
+}
 tbody tr:hover .badge-layer1 { box-shadow: 0 0 14px var(--green-glow); }
 tbody tr:hover .badge-layer2 { box-shadow: 0 0 14px var(--blue-glow); }
 tbody tr:hover .badge-layer3 { box-shadow: 0 0 14px var(--pink-glow); }
+tbody tr:hover .badge-layer4 { box-shadow: 0 0 14px var(--purple-glow); }
 
 .cause-badge {
   display: inline-flex; align-items: center; gap: 0.3rem;

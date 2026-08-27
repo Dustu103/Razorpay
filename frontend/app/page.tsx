@@ -2,12 +2,13 @@ import Link from 'next/link';
 import { fetchClassifications, formatAmount, formatDate } from '@/lib/api';
 import type { ClassificationView, Cause } from '@/types/classification';
 import FilterBar from '@/components/FilterBar';
+import SimulatorPanel from '@/components/SimulatorPanel';
 import { LayerBadge } from '@/components/ui/LayerBadge';
 import { CauseBadge } from '@/components/ui/CauseBadge';
 import { ConfidenceBar } from '@/components/ui/ConfidenceBar';
 import { 
   BarChart2, Zap, Bot, Target, AlertTriangle, CheckCircle2, 
-  Inbox, AlertCircle, BrainCircuit
+  Inbox, AlertCircle, BrainCircuit, Network
 } from 'lucide-react';
 
 interface Props {
@@ -33,6 +34,7 @@ export default async function TransactionListPage({ searchParams }: Props) {
   const layer1Count  = data.filter(d => d.layer === 1).length;
   const layer2Count  = data.filter(d => d.layer === 2).length;
   const layer3Count  = data.filter(d => d.layer === 3).length;
+  const layer4Count  = data.filter(d => d.layer === 4).length;
   const avgConf      = data.length ? (data.reduce((s, d) => s + d.confidence, 0) / data.length * 100).toFixed(0) : '—';
   const needsReview  = data.filter(d => d.confidence === 0).length;
 
@@ -75,6 +77,11 @@ export default async function TransactionListPage({ searchParams }: Props) {
           <div className="stat-value">{layer3Count}</div>
           <div className="stat-label">Layer 3 · LLM</div>
         </div>
+        <div className="stat-card" style={{ '--accent-color': 'var(--purple)' } as any}>
+          <div className="stat-icon"><Network size={24} /></div>
+          <div className="stat-value">{layer4Count}</div>
+          <div className="stat-label">Layer 4 · Ensemble</div>
+        </div>
         <div className="stat-card" style={{ '--accent-color': 'var(--amber)' } as any}>
           <div className="stat-icon"><Target size={24} /></div>
           <div className="stat-value">{avgConf}{avgConf !== '—' ? '%' : ''}</div>
@@ -92,6 +99,9 @@ export default async function TransactionListPage({ searchParams }: Props) {
         <FilterBar currentCause={cause} currentLayer={layer} />
         <span className="result-count">{count} result{count !== 1 ? 's' : ''}</span>
       </div>
+
+      {/* Simulator UI */}
+      <SimulatorPanel />
 
       {/* Table */}
       {error ? (
