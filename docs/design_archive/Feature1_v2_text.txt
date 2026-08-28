@@ -1,0 +1,110 @@
+RAZORPAY AI BUILDATHON 2026
+Feature 1 — Root-Cause Classifier
+Technical Design v2: Hybrid Model Architecture, Cost-Weighted Error Tolerance & Research Reading List
+This version extends the v1 design in three ways: (1) it replaces the single LLM-only Layer 2 with a hybrid pipeline — deterministic rule, then a fine-tuned classifier, then a general LLM used only for hard cases and reasoning — because the problem is transaction-level accuracy, not inference cost; (2) it replaces the single global confidence threshold with per-cause, per-action thresholds driven by how expensive each type of error actually is; (3) it adds a categorized reading list of the actual research and sources behind these decisions, so the reasoning can be checked rather than taken on faith.
+1. What This Feature Is Actually Solving
+Collapsing five distinct failure causes into a single word — "failed" — creates a cost mismatch, not just an information loss. Industry estimates (Javelin, and separately Aite-Novarica) put the cost of false declines at roughly 13 times the cost of the fraud they're meant to prevent; the exact global dollar figure varies by source and year ($231B projected for 2026 by one estimate, $443B annually by another), but every source agrees on the direction and the order of magnitude. The mechanism is behavioral, not just statistical: a fraud loss costs one transaction, while a false decline costs the transaction plus the customer, who experiences it as the merchant's fault and buys elsewhere.
+This reframes the feature's actual job: it is not a generic accuracy-maximizing classifier, it is a system for routing five causes to five very differently-priced mistakes. That reframing is what drives the threshold design in section 3.
+2. Model Architecture — Hybrid Pipeline
+Cost of inference is deliberately not a constraint here — this is a transaction-level accuracy problem, so the design below optimizes for correctness first, with cost addressed only where it doesn't trade off against accuracy.
+2.1 Four stages
+Stage
+What runs
+Why
+1. Rule
+Deterministic notification-compliance check
+Zero tolerable error; a model should never own this decision
+2. Fine-tuned classifier
+A small open-weight model fine-tuned on labeled transaction data for exactly this 5-cause taxonomy
+Higher accuracy than zero-shot on structured, patterned inputs once enough labeled data exists; fast and consistent on cases it has seen before
+3. General LLM fallback
+A general-purpose LLM handles only low-confidence or out-of-distribution cases from stage 2, and always generates the reasoning field
+Reasons from first principles on novel bank/response-code combinations the fine-tuned model hasn't seen; produces the plain-language explanation the audit trail needs
+4. Feedback loop
+Real outcomes (did the retry succeed?) and stage-3 LLM labels feed back into the next fine-tuning run
+The fine-tuned model keeps absorbing exactly the cases it currently can't handle, instead of staying static
+transaction --> [Layer 1: rule] --notification block?--> silent_reschedule                     |  (no)                     v            [Layer 2: fine-tuned classifier]                     |        confident & in-distribution?  ------ yes ---> use its output                     | no                     v            [Layer 3: general LLM]        (produces cause + reasoning + recommended_action)                     |                     v     outcome logged --> feeds next fine-tuning run
+2.2 Where the fine-tuning data comes from
+No labeled dataset exists yet for this exact 5-cause taxonomy, so it has to be bootstrapped rather than sourced ready-made:
+Bootstrap: run the general LLM (stage 3) plus the deterministic rule over the synthetic dataset to generate an initial batch of labels.
+Spot-check a sample of those labels — especially the ones the LLM itself was less confident about — before they're trusted as fine-tuning ground truth, to avoid baking in the LLM's own systematic mistakes.
+Fine-tune only once there are a few thousand cleaned examples spread across all five causes, with the real-world skew (soft decline dominant) deliberately preserved rather than artificially balanced.
+The public fraud/transaction datasets in section 6 are not label sources for this taxonomy — they're used to shape realistic feature distributions (amount ranges, response-code patterns, class imbalance ratios) when generating the synthetic bootstrap set.
+2.3 Model choice
+For the fine-tuned stage-2 model: Qwen 2.5 7B Instruct is widely cited as a strong current choice specifically for fine-tuned text classification, with smaller models (3B-class) sometimes matching or beating larger ones when the training data is good — model size matters less here than data quality. Phi-4-mini-instruct is a reasonable lighter-weight alternative for narrow, well-bounded classification steps if inference latency needs to be tighter. Both are open-weight and can be fine-tuned with LoRA/QLoRA on a single GPU rather than requiring a training cluster.
+Open issue: Model rankings in this space shift roughly monthly. Before committing, re-check current benchmarks for classification specifically — general coding/reasoning leaderboards (which dominate most 'best open source LLM' roundups) are not the right benchmark for a structured classification task like this one.
+2.4 Deployment — cloud-hosted, per your preference
+Recommended path: Hugging Face Hub for the fine-tuned model artifact, deployed via Hugging Face Inference Endpoints (dedicated GPU, autoscale-to-zero when idle) rather than local/self-managed hosting. For the general-LLM fallback stage, a hosted provider (accessed the same way, via an OpenAI-compatible API) avoids standing up separate GPU infrastructure for a stage that only runs on a minority of transactions.
+Demo / low-traffic validation: Hugging Face Spaces with ZeroGPU gives free shared GPU access for interactive demos — sufficient for the buildathon validation run, not for sustained production traffic.
+Production-shaped deployment: Inference Endpoints with min_replica=0 (scales to zero when idle, spins up on first request) for the fine-tuned classifier, since transaction volume is bursty rather than constant.
+Fallback LLM stage: route through Hugging Face's Inference Providers (or a direct provider API) rather than hosting a second large model yourself — it's only invoked for the minority of low-confidence/OOD cases, so a per-token hosted call is simpler than dedicated hardware for a rarely-used stage.
+Open issue: Free-tier GPU access (HF ZeroGPU, similar platforms) is genuinely free but quota-limited and shared — fine for demonstrating the pipeline works, not a substitute for sizing real production infrastructure. Treat it as the validation/demo environment, not the target deployment.
+3. Error Tolerance — Per-Cause, Not Global
+The v1 design used one confidence threshold (0.6) for every cause. That treats all errors as equally costly, which they are not. Each cause has two failure directions with very different price tags:
+Cause
+Cheap error (tolerate)
+Expensive error (avoid)
+notification_compliance_block
+—
+Missing it → customer wrongly dunned for the bank's fault, plus direct RBI compliance exposure. This is why it stays a zero-tolerance deterministic rule, never a model.
+soft_decline
+Retrying once on a borderline case that turns out unrecoverable
+Mislabeling as hard_decline → abandoning a transaction that would have succeeded. Highest-volume cause (70-90% of failures), so recall here protects most of the recoverable revenue.
+hard_decline
+One extra retry before giving up
+Mislabeling a real hard decline as soft/gateway → wasted retries that can trip issuer fraud/velocity flags
+gateway_fault
+Small delay before retry fires
+Over-assigning this label → the most aggressive action (retry_now) firing on a real customer decline
+fraud_filter_block
+—
+Both directions are expensive: missing it loses a customer permanently (about a third never return after a wrongful decline); wrongly assigning it can let a genuinely fraudulent or correctly-blocked transaction through via reverify_and_reverse.
+3.1 Per-action confidence thresholds
+Action
+Threshold
+Reasoning
+silent_reschedule
+n/a — deterministic
+Confidence isn't tunable for a compliance decision; it's a fact, not a score
+retry_scheduled / retry_now
+~0.5–0.6
+Wrong call just costs a mistimed or slightly early retry — a cheap mistake, so a moderate bar is fine
+do_not_retry
+~0.5–0.6
+Downside of a wrong 'stop retrying' is a few missed attempts, not catastrophic, as long as it isn't systematically misfiring on soft_decline volume
+reverify_and_reverse
+~0.85+
+The only action where a wrong call is a direct monetary/fraud loss, not just a delay — below this bar, fall back to do_not_retry specifically, never partway toward reversal
+3.2 Cost-weighted validation, not raw accuracy
+The v1 validation plan measured percentage of transactions where predicted cause matches ground truth — treating a mix-up between soft_decline and gateway_fault as equally bad as a mix-up between fraud_filter_block and hard_decline, which it clearly is not. The validation harness should instead score a cost-weighted confusion matrix: assign a relative cost to each of the twenty possible wrong-label pairs (five causes × four incorrect labels each), and report a weighted error cost alongside raw accuracy. That weighted number — not the aggregate percentage — should be the actual gate for calling this feature done.
+4. Research & Reading List
+Grouped by what each source is actually useful for. These are the real links behind the numbers and design decisions used throughout this document.
+4.1 The regulation Layer 1 is built on
+RBI Digital Payments – E-mandate Framework, 2026 (ANI coverage)  —  the 24-hour pre-debit notification rule Layer 1 encodes, straight from the source announcement
+RBI e-mandate framework, provision-by-provision breakdown  —  clause-level detail: AFA thresholds, post-transaction alerts, exemptions (FASTag/NCMC)
+4.2 Why the problem matters (the economics)
+Signifyd — measuring and reducing false declines  —  global false-decline cost estimates and how merchants typically measure the problem
+Corgi Labs — false declines cost 13x more than fraud  —  the 13x figure explained, plus why tightening fraud rules alone backfires
+HL Hunt — decline codes decoded  —  the behavioral asymmetry: why a false decline costs more than the transaction itself
+4.3 Datasets for shaping synthetic/fine-tuning data
+PaySim synthetic mobile-money dataset  —  transaction-volume and amount distribution reference
+IEEE-CIS Fraud Detection  —  realistic feature sparsity/messiness for the fraud-filter cause
+Credit Card Fraud Detection (ULB)  —  canonical class-imbalance reference
+Bank Account Fraud Dataset Suite (NeurIPS 2022)  —  per-bank behavior modeling reference
+Pattern-Based UPI Transaction Risk Dataset (2026)  —  closest match to the India/UPI context of this project
+4.4 Choosing and fine-tuning an open-weight model
+Sivaro — best open source LLM to fine-tune for text classification  —  Qwen 2.5 7B recommendation with real fine-tuning cost/time numbers
+BentoML — best open-source small language models  —  Phi-4-mini as a lighter-weight alternative, with its real limitations
+Thunder Compute — best open source LLMs, August 2026  —  current model landscape plus the standard tooling (Ollama, Unsloth, vLLM) for running and fine-tuning them
+4.5 Cloud deployment
+MyEngineeringPath — Hugging Face Hub, Inference Endpoints & LoRA/QLoRA guide  —  practical walkthrough of deploying a fine-tuned model as an autoscaling endpoint
+Klymentiev — Hugging Face inference pricing & when to use what  —  decision guide: Spaces vs. Endpoints vs. Inference Providers vs. self-hosting, by traffic pattern
+GMI Cloud — free GPU options for 2026  —  what free tiers (HF ZeroGPU and others) can and can't realistically support
+5. Summary of Decisions Carried Forward
+Layer 1 stays deterministic and model-free — zero tolerance for error, by design, not by model performance.
+Layer 2 is a fine-tuned open-weight classifier (Qwen 2.5 7B Instruct or similar), not a raw prompt-only LLM call, because trained models tend to outperform zero-shot LLMs on structured, patterned classification once enough labeled data exists.
+Layer 3 (general LLM) is reserved for low-confidence/out-of-distribution cases and for generating the reasoning field — not for every transaction.
+Confidence thresholds are set per action, not globally — reverify_and_reverse requires the highest bar of any action, since it's the only one where a wrong call is a direct financial loss rather than a delay.
+Validation reports a cost-weighted confusion matrix alongside raw accuracy, so the feature is graded on where it's wrong, not just how often.
+Deployment is cloud-hosted throughout (Hugging Face Endpoints/Spaces for the fine-tuned model, a hosted provider for the fallback LLM), with free-tier GPU access treated as the demo/validation environment rather than the production target.
+

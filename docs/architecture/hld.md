@@ -1,8 +1,8 @@
 # High-Level Design (HLD)
-# Feature 1 — Root-Cause Classifier
+# Razorpay AI Buildathon 2026 Enterprise Monorepo
 
-**Version:** 1.0  
-**Last Updated:** 2026-08-22  
+**Version:** 2.0  
+**Last Updated:** 2026-08-28  
 **Author:** Engineering Team  
 **Status:** Approved for Implementation
 
@@ -10,12 +10,11 @@
 
 ## 1. Problem Statement
 
-Razorpay processes millions of recurring mandate payments daily. When a payment fails, the current system cannot programmatically determine *why* it failed — teams rely on manual inspection of bank response codes that are inconsistent across issuers. This causes delayed recovery actions and poor customer experience.
+This enterprise monorepo solves two major operational bottlenecks for Razorpay:
+1. **Pillar A (Chargebacks):** Manual dispute resolution is costly and slow. The **Chargeback Pre-emption Service** uses Machine Learning to predict dispute win probabilities and autonomous LLMs to draft compelling rebuttals, deflecting unwinnable disputes via refunds.
+2. **Pillar B (Diagnostics):** When payments fail, the system cannot programmatically determine the root cause. The **Root-Cause Classifier** uses a Mixture-of-Experts (ML + LLM) to instantly classify failures (e.g., fraud block vs. soft decline).
 
-**Feature 1** builds a hybrid Mixture-of-Experts automated classifier that:
-1. Detects RBI notification-compliance violations deterministically (Layer 1)
-2. Classifies all other failures into one of four causes by concurrently querying a fast Random Forest ML model (Layer 2) and a large language model (Layer 3).
-3. Merges the results via an Ensemble tie-breaker (Layer 4) to maximize both latency and accuracy.
+To achieve maximum scalability, all heavy Machine Learning (XGBoost, LightGBM, Scikit-learn) is abstracted away from the lightweight Go/Python backend services into a centralized **Inference Gateway**.
 
 ---
 
@@ -23,143 +22,66 @@ Razorpay processes millions of recurring mandate payments daily. When a payment 
 
 ```mermaid
 graph TD
-    RZ[Razorpay Webhooks] -->|POST /api/v1/webhook| IS[Ingestion Service<br/>:3001]
-    IS -->|Atomic upsert| PG[(PostgreSQL)]
-    IS -->|RPUSH| RQ[Redis Queue<br/>classification_jobs]
-    RQ -->|BLPOP| CS[Classification Service<br/>worker]
-    CS -->|SELECT transaction| PG
-    CS -->|Layer 1 rule| L1{RBI compliance<br/>check}
-    L1 -->|compliance block| PG
-    L1 -->|fall through| MOE{Mixture of Experts}
-    MOE -->|Concurrent| L2[Layer 2<br/>ML Random Forest]
-    MOE -->|Concurrent| L3[Layer 3<br/>LLM Groq/Gemini]
-    L2 --> L4[Layer 4<br/>Ensemble Tie-Breaker]
-    L3 --> L4
-    L4 --> PG
-    FE[Frontend Inspector<br/>:3000] -->|GET /api/v1/classifications| AS[Audit Service<br/>:3003]
-    AS -->|SELECT JOIN| PG
+    %% Ingestion & Classification (Pillar B)
+    RZ[Razorpay Webhooks] -->|POST /api/v1/webhook| IS[Ingestion Service :3001]
+    IS -->|RPUSH| RQ[Redis Queue]
+    RQ -->|BLPOP| CS[Classification Worker]
+    
+    %% Chargebacks (Pillar A)
+    CB[Dispute Webhooks] -->|POST /analyze-dispute| CBS[Chargeback Service :3005]
+
+    %% The Centralized ML Brain
+    subgraph Centralized Machine Learning
+        IG[Inference Gateway :8000]
+        IG --> M1[(Payment XGBoost)]
+        IG --> M2[(Chargeback Ensemble)]
+    end
+    
+    %% Routing to Inference Gateway
+    CS -->|POST /predict/payment| IG
+    CBS -->|POST /predict/chargeback| IG
+
+    %% LLM Routing
+    CS -->|Prompt| LLM[Groq / Gemini AI]
+    CBS -->|Prompt| LLM
+    
+    %% Storage
+    IS --> PG[(PostgreSQL)]
+    CS --> PG
+    CBS --> PG
+    
+    %% Frontend
+    FE[Next.js Dashboard :3000] -->|GET| AS[Audit API :3003]
+    AS --> PG
 ```
 
 ---
 
 ## 3. Services
 
-| Service | Port | Role | Scales |
-|---------|------|------|--------|
-| **Ingestion Service** | 3001 | Webhook receiver; payload validation, dedup, enqueue | Horizontally (stateless) |
-| **Classification Service** | — | Queue worker; Layer 1 + Layer 2; persists results | Horizontally (multiple workers) |
-| **Audit Service** | 3003 | Read-only API for the Frontend Inspector | Horizontally (stateless) |
-| **Frontend** | 3000 | Next.js Classifier Inspector UI | Horizontally |
+| Service | Port | Technology | Role |
+|---------|------|------------|------|
+| **Inference Service** | 8000 | FastAPI (Python 3.11) | Centralized ML Gateway hosting XGBoost and LightGBM models in memory. |
+| **Chargeback Service** | 3005 | FastAPI (Python 3.11) | Executes deterministic logic (VAMP protection), routes to Inference Gateway, and drafts LLM rebuttals. |
+| **Classification Service**| — | Go (Workers) | Pops failed payment webhooks off Redis, routes to Inference Gateway and LLMs. |
+| **Ingestion Service** | 3001 | Go (Fiber) | Webhook receiver; handles payload validation, DB dedup, and Redis enqueuing. |
+| **Audit Service** | 3003 | Go (Fiber) | Read-only API for the Frontend Inspector to query classifications and chargebacks. |
+| **Frontend Dashboard** | 3000 | Next.js (SSR) | Unified Operations Dashboard UI. |
 
 ---
 
-## 4. Data Flow (End-to-End)
+## 4. Architectural Patterns
 
-```
-Razorpay
-  │  payment.failed webhook (POST)
-  ▼
-Ingestion Service
-  ├─ Validate payload structure
-  ├─ Clean fields (uppercase, normalise codes, clamp retries)
-  ├─ Atomic upsert → PostgreSQL (ON CONFLICT DO NOTHING)
-  │   └─ Duplicate? → return 200 "duplicate", stop.
-  └─ Enqueue ClassificationJob (transaction_id) → Redis
-  
-Classification Worker
-  ├─ BLPOP from Redis queue
-  ├─ Fetch full transaction from PostgreSQL
-  ├─ Layer 1: RBI 24h notification rule
-  │   └─ Match? → write classification (layer=1, confidence=1.0), done.
-  └─ Mixture of Experts (Concurrent)
-      ├─ Layer 2: Fast ML Random Forest Classifier (confidence + cause)
-      ├─ Layer 3: General LLM API (reasoning + cause)
-      └─ Layer 4: Ensemble Tie-Breaker
-          ├─ Match? → Boost confidence to 0.99
-          ├─ Disagree (ML High Conf > 0.85)? → Override LLM with ML cause
-          ├─ Disagree (ML Low Conf < 0.85)? → Trust LLM reasoning
-          └─ Write classification (layer=4, confidence=X.XX)
+### 4.1 The Inference Gateway Pattern
+Instead of bundling large ML dependencies (NumPy, SciPy, LightGBM) directly into the business logic microservices, we offload all prediction requests over HTTP to the `inference-service`.
+- **Pros:** Keeps the business microservices lightweight, allowing them to scale independently. Prevents dependency conflicts between Go services and Python ML libraries.
+- **Fault Tolerance:** If the inference service is unavailable, the `chargeback-service` falls back to its deterministic rule engine or routes the case for manual review.
 
-Audit Service
-  └─ Frontend reads GET /api/v1/classifications?cause=&layer=
-      └─ Joined view: classifications ⋈ transactions → JSON
-```
+### 4.2 Mixture of Experts (MoE) & SHAP Injection
+The system combines the speed of structured ML with the reasoning power of LLMs:
+1. **TreeSHAP Extraction**: The Inference Gateway executes the ML prediction and uses SHAP to extract the top defining features (e.g., "Amount > 50k", "No 3DS Auth").
+2. **Context Injection**: These SHAP features are dynamically injected into the system prompt of the LLM.
+3. **Multi-LLM Ensemble**: The system queries both Groq (Llama 3) and Gemini concurrently, scoring their generated text against the hard evidence, and returning the most accurate rebuttal.
 
----
-
-## 5. Classification Taxonomy
-
-| Cause | Layer | Trigger |
-|-------|-------|---------|
-| `notification_compliance_block` | 1 | RBI: notification missing or < 24h before debit |
-| `soft_decline` | 2, 3, 4 | Transient issuer issue — retriable |
-| `hard_decline` | 2, 3, 4 | Permanent issuer rejection — do not retry |
-| `gateway_fault` | 2, 3, 4 | Timeout / technical failure at gateway |
-| `fraud_filter_block` | 2, 3, 4 | Bank risk/fraud filter triggered |
-
----
-
-## 6. Layer 4: Ensemble Tie-Breaker Logic
-Because Layer 2 and Layer 3 execute concurrently, a deterministic Go routine (Layer 4) merges their outputs to finalize the decision:
-- **Condition A (Agreement):** If `Layer_2_Cause == Layer_3_Cause`, the classification is locked with confidence `0.99`.
-- **Condition B (ML Override):** If `Layer_2_Cause != Layer_3_Cause` AND `Layer_2_Confidence > 0.85`, the ML model's prediction overrides the LLM. 
-- **Condition C (LLM Tie-Break):** If `Layer_2_Cause != Layer_3_Cause` AND `Layer_2_Confidence < 0.85`, the LLM's vast semantic reasoning breaks the tie, and its cause and confidence are used.
-
----
-
-## 6. Recommended Actions
-
-| Action | Meaning |
-|--------|---------|
-| `silent_reschedule` | Reschedule debit without alerting customer |
-| `retry_now` | Retry immediately |
-| `retry_scheduled` | Retry after a delay |
-| `do_not_retry` | Permanent failure — notify customer |
-| `reverify_and_reverse` | Reverify mandate and reverse if needed |
-
----
-
-## 7. Infrastructure
-
-```mermaid
-graph LR
-    subgraph Docker Compose
-        IS[ingestion-service]
-        CS[classification-service]
-        AS[audit-service]
-        FE[frontend]
-        PG[(postgres:15)]
-        RD[(redis:7)]
-    end
-    IS --> PG
-    IS --> RD
-    CS --> PG
-    CS --> RD
-    AS --> PG
-    FE --> AS
-```
-
----
-
-## 8. Key Design Decisions
-
-| Decision | Rationale |
-|----------|-----------|
-| Queue decouples ingestion from classification | Webhook must return fast; LLM calls can be slow/retried |
-| Atomic DB upsert for dedup | Razorpay guarantees at-least-once delivery; concurrent duplicates would pass a non-atomic check |
-| Layer 1 is a pure function | Zero dependencies, zero latency, deterministic — runs before any I/O |
-| `recommended_action` stored at classification time | Audit trail must reflect the decision made *then*, not derived from current routing logic |
-| Layer 4 Ensemble Tie-Breaker | Running ML and LLM concurrently merges domain expertise (ML) with vast semantic reasoning (LLM) without sacrificing latency. |
-
----
-
-## 9. Open Issues (Pre-Build)
-
-| # | Issue | Owner |
-|---|-------|-------|
-| 1 | Dedup must be atomic upsert, not read-then-write | Backend |
-| 2 | `mandate_notification_sent_at` field coverage per bank needs auditing | Data/Backend |
-| 3 | `least_aggressive_action` needs per-cause lookup table | Backend |
-| 4 | LLM call needs timeout + retry + failure path | AI/Backend |
-| 5 | Data residency / third-party API sign-off for RBI-governed fields | Legal/Infra |
-| 6 | Synthetic validation set is directional only | AI |
+### 4.3 VAMP Protection (Deflection Layer)
+Visa requires merchants to stay below a 1.5% dispute ratio (VAMP). The deterministic engine intercepts cases where the merchant is approaching this ratio and forcibly issues a refund (deflects the dispute) to protect their standing, overriding the ML probability engine if necessary.

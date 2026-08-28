@@ -1,6 +1,6 @@
-# Feature 1 — Root-Cause Classifier: Documentation Index
+# Razorpay Enterprise Services: Documentation Index
 
-> **Project:** Razorpay AI Buildathon 2026 · Feature 1 & 2 (Pillar B — Diagnose)
+> **Project:** Razorpay AI Buildathon 2026
 
 ---
 
@@ -15,47 +15,61 @@ docs/
 │   └── flow-diagrams/
 │       └── data-pipeline.md
 │
-├── classification-service/                    ← All docs for the classification pipeline
-│   ├── README.md
-│   ├── ml-pipeline.md
-│   ├── multi-llm-integration.md
-│   ├── testing-and-results.md
-│   ├── decisions/                             ← ADRs scoped to this service
-│   │   ├── ADR-001-random-forest-layer2.md
-│   │   ├── ADR-002-groq-over-openai.md
-│   │   ├── ADR-003-redis-queue-over-http.md
-│   │   ├── ADR-004-go-for-classification-service.md
-│   │   └── ADR-005-multi-llm-ensemble.md
-│   └── runbooks/                              ← Ops runbooks scoped to this service
-│       ├── RB-001-restart-classification-worker.md
-│       ├── RB-002-debug-stuck-redis-queue.md
-│       └── RB-003-run-e2e-test-pipeline.md
+├── services/
+│   ├── inference-service/                     ← Centralized ML Inference Gateway
+│   │   ├── architecture.md
+│   │   └── api.md
+│   │
+│   ├── chargeback-service/                    ← Autonomous Chargeback Pre-emption (Pillar A)
+│   │   ├── architecture.md
+│   │   ├── runbooks.md
+│   │   └── adr-008.md
+│   │
+│   ├── classification-service/                ← Root-Cause Classifier (Pillar B)
+│   │   ├── README.md
+│   │   ├── ml-pipeline.md
+│   │   ├── multi-llm-integration.md
+│   │   ├── testing-and-results.md
+│   │   ├── decisions/
+│   │   └── runbooks/
+│   │
+│   ├── compliance-service/                    ← Compliance Scanner
+│   │   ├── README.md
+│   │   ├── architecture.md
+│   │   ├── multi-llm-integration.md
+│   │   ├── testing-and-results.md
+│   │   ├── decisions/
+│   │   └── runbooks/
+│   │
+│   ├── frontend/                              ← Next.js Dashboard
+│   │   ├── README.md
+│   │   ├── architecture.md
+│   │   ├── api-docs.md
+│   │   ├── lld.md
+│   │   ├── screens.md
+│   │   └── decisions/
+│   │
+│   ├── audit-service/                         ← Audit logging backend
+│   │   ├── api.md
+│   │   └── lld.md
+│   │
+│   ├── ingestion-service/                     ← Webhook processor
+│   │   ├── api.md
+│   │   ├── flow.md
+│   │   └── lld.md
+│   │
+│   └── database/                              ← Database models & schema
+│       ├── models.md
+│       └── schema.md
 │
-├── compliance-service/                        ← All docs for the compliance scanner (Feature 2)
-│   ├── README.md
-│   ├── architecture.md
-│   ├── multi-llm-integration.md              ← Concurrent Groq + Gemini ensemble, Union strategy
-│   ├── testing-and-results.md
-│   ├── decisions/
-│   │   ├── ADR-007-compliance-json-schema-input.md
-│   │   └── ADR-008-multi-llm-union-strategy.md
-│   └── runbooks/
-│       └── RB-005-debug-compliance-violations.md
-│
-├── frontend-dashboard/                        ← All docs for the Next.js dashboard
-│   ├── README.md
-│   ├── architecture.md
-│   └── decisions/
-│       └── ADR-006-nextjs-ssr-dashboard.md
+├── design_archive/                            ← Original V1 design documents and product requirements
 │
 └── operations/                                ← Cross-service / infrastructure runbooks
     └── runbooks/
         └── RB-004-rotate-llm-api-keys.md
 ```
 
-> **Convention:** Every new service gets its own `docs/<service-name>/` folder containing
-> `decisions/` and `runbooks/` subfolders. `docs/architecture/` is reserved for system-wide
-> cross-service diagrams only. `docs/operations/` is for shared infrastructure runbooks.
+> **Convention:** Every new service gets its own `docs/services/<service-name>/` folder containing its API docs, Low-Level Design (LLD), `decisions/` (ADRs), and `runbooks/`. `docs/architecture/` is reserved for system-wide cross-service diagrams.
 
 ---
 
@@ -67,38 +81,61 @@ docs/
 | [HLD](./architecture/hld.md) | Full system picture — start here |
 | [Data Pipeline](./architecture/flow-diagrams/data-pipeline.md) | End-to-end webhook-to-inference flow |
 
-### Classification Service
-| Document | Purpose |
-|----------|---------|
-| [ML Pipeline](./classification-service/ml-pipeline.md) | ML architecture, SMOTE, Random Forest, Ensemble logic |
-| [Multi-LLM Integration](./classification-service/multi-llm-integration.md) | Concurrent Groq + Gemini inference |
-| [Testing & Results](./classification-service/testing-and-results.md) | Benchmarks, stress-test results, accuracy |
-| [ADR-001](./classification-service/decisions/ADR-001-random-forest-layer2.md) | Why Random Forest for Layer 2 |
-| [ADR-002](./classification-service/decisions/ADR-002-groq-over-openai.md) | Why Groq as primary LLM |
-| [ADR-003](./classification-service/decisions/ADR-003-redis-queue-over-http.md) | Why Redis queue over sync HTTP |
-| [ADR-004](./classification-service/decisions/ADR-004-go-for-classification-service.md) | Why Go for the classification-service |
-| [ADR-005](./classification-service/decisions/ADR-005-multi-llm-ensemble.md) | Why concurrent Multi-LLM ensemble |
-| [RB-001](./classification-service/runbooks/RB-001-restart-classification-worker.md) | Restart stuck classification worker |
-| [RB-002](./classification-service/runbooks/RB-002-debug-stuck-redis-queue.md) | Debug growing Redis queue |
-| [RB-003](./classification-service/runbooks/RB-003-run-e2e-test-pipeline.md) | Post-deployment E2E validation |
+### Core ML & AI Services
 
-### Compliance Service (Feature 2)
+#### Inference Gateway
 | Document | Purpose |
 |----------|---------|
-| [Architecture](./compliance-service/architecture.md) | API design, LLM prompt logic, RBI rule mapping |
-| [Multi-LLM Integration](./compliance-service/multi-llm-integration.md) | Concurrent Groq + Gemini ensemble, Union strategy, failure modes |
-| [Testing & Results](./compliance-service/testing-and-results.md) | 13/13 E2E test pass results |
-| [ADR-007](./compliance-service/decisions/ADR-007-compliance-json-schema-input.md) | Why JSON schema over web scraper |
-| [ADR-008](./compliance-service/decisions/ADR-008-multi-llm-union-strategy.md) | Why Union over Intersection for multi-LLM merge |
-| [RB-005](./compliance-service/runbooks/RB-005-debug-compliance-violations.md) | Debug Layer 1 / Layer 2 failures |
+| [Architecture](./services/inference-service/architecture.md) | Centralized Python Machine Learning gateway (XGBoost/LightGBM) |
+| [API](./services/inference-service/api.md) | HTTP POST predictive endpoints for Payment Failures & Chargebacks |
 
-### Frontend Dashboard
+#### Chargeback Pre-emption (Pillar A)
 | Document | Purpose |
 |----------|---------|
-| [Architecture](./frontend-dashboard/architecture.md) | SSR, Webhook Simulator, 4-Layer badge system |
-| [ADR-006](./frontend-dashboard/decisions/ADR-006-nextjs-ssr-dashboard.md) | Why Next.js SSR App Router |
+| [Architecture](./services/chargeback-service/architecture.md) | Dispute deterministic engine and LLM Rebuttal logic |
+| [ADR-008](./services/chargeback-service/decisions/ADR-008-chargeback-architecture.md) | Decisions regarding chargeback architecture |
+| [Runbooks](./services/chargeback-service/runbooks/RB-007-chargeback-ops.md) | Operations & debugging for chargeback handling |
 
-### Operations (Cross-Service)
+#### Root-Cause Classification (Pillar B)
 | Document | Purpose |
 |----------|---------|
-| [RB-004](./operations/runbooks/RB-004-rotate-llm-api-keys.md) | Rotate Groq / Gemini API keys |
+| [ML Pipeline](./services/classification-service/ml-pipeline.md) | ML architecture, SMOTE, Random Forest, Ensemble logic |
+| [Multi-LLM Integration](./services/classification-service/multi-llm-integration.md) | Concurrent Groq + Gemini inference |
+| [Testing & Results](./services/classification-service/testing-and-results.md) | Benchmarks, stress-test results, accuracy |
+| [ADRs](./services/classification-service/decisions/) | Key architectural decisions (Go vs Python, Redis Queues) |
+
+#### Compliance Scanner
+| Document | Purpose |
+|----------|---------|
+| [Architecture](./services/compliance-service/architecture.md) | API design, LLM prompt logic, RBI rule mapping |
+| [Multi-LLM Integration](./services/compliance-service/multi-llm-integration.md) | Concurrent Groq + Gemini ensemble, Union strategy |
+| [Testing & Results](./services/compliance-service/testing-and-results.md) | E2E test pass results |
+| [ADRs](./services/compliance-service/decisions/) | Multi-LLM Union Strategy, JSON schema validation |
+
+### Microservices
+
+#### Frontend Dashboard
+| Document | Purpose |
+|----------|---------|
+| [Architecture](./services/frontend/architecture.md) | SSR, Webhook Simulator, 4-Layer badge system |
+| [API & Screens](./services/frontend/api-docs.md) | Detailed UI documentation |
+| [ADR-006](./services/frontend/decisions/ADR-006-nextjs-ssr-dashboard.md) | Why Next.js SSR App Router |
+
+#### Ingestion Service (Webhook Gateway)
+| Document | Purpose |
+|----------|---------|
+| [API Definition](./services/ingestion-service/api.md) | Webhook payload definitions |
+| [LLD & Flow](./services/ingestion-service/flow.md) | Queueing and routing logic |
+
+#### Audit Service (Event Logging)
+| Document | Purpose |
+|----------|---------|
+| [API Definition](./services/audit-service/api.md) | Logging queries and event retrieval |
+| [Database Schema](./services/database/schema.md) | PostgreSQL / MongoDB core schemas |
+
+### Operations & Maintenance
+| Document | Purpose |
+|----------|---------|
+| [Rotate API Keys](./operations/runbooks/RB-004-rotate-llm-api-keys.md) | Rotating Groq/Gemini credentials |
+| [Classification Runbooks](./services/classification-service/runbooks/) | Debugging workers and redis queues |
+| [Compliance Runbooks](./services/compliance-service/runbooks/) | Resolving compliance violations |
