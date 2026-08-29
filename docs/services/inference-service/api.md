@@ -99,3 +99,37 @@ Runs the multi-model ensemble on transaction metadata and evidence flags to calc
   "model_version": "scikit-learn-rf-v1"
 }
 ```
+
+---
+
+## Predict False Decline (Layer 2)
+*(Used to identify genuine transactions that were mistakenly blocked by fraud filters)*
+
+**Endpoint**: `POST /predict/false-decline`
+
+**Request Body**:
+```json
+{
+  "amount": 1000,
+  "transaction_velocity": 2,
+  "is_known_device": 1,
+  "ip_risk_score": 0.1,
+  "merchant_category": "electronics",
+  "transaction_hour": 14
+}
+```
+
+**Response (200 OK)**:
+```json
+{
+  "false_decline_likelihood": 0.97,
+  "recommended_action": "reverify_and_reverse",
+  "contributing_features": [
+    "low_ip_risk",
+    "low_transaction_velocity",
+    "known_device",
+    "normal_amount",
+    "normal_business_hours"
+  ]
+}
+```

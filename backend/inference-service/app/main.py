@@ -7,6 +7,7 @@ import os
 import time
 
 from .win_probability import DisputeClassifier
+from .models.false_decline import FalseDeclineModel, FalseDeclineInput
 
 app = FastAPI(title="Razorpay Centralized Inference Gateway")
 
@@ -16,6 +17,7 @@ PAYMENT_MODEL_PATH = os.path.join(PAYMENT_MODEL_DIR, "layer2_payment_failure_mod
 
 payment_model = None
 chargeback_model = None
+false_decline_model = None
 
 class Transaction(BaseModel):
     id: str
@@ -37,7 +39,7 @@ class Transaction(BaseModel):
 
 @app.on_event("startup")
 def load_models():
-    global payment_model, chargeback_model
+    global payment_model, chargeback_model, false_decline_model
     
     # Load Payment Failure Model
     print(f"Loading Payment ML model from {PAYMENT_MODEL_PATH}...")
@@ -58,12 +60,21 @@ def load_models():
     except Exception as e:
         print(f"Error loading chargeback model: {e}")
 
+    # Load False Decline Model
+    print(f"Loading False Decline ML model from {PAYMENT_MODEL_DIR}...")
+    try:
+        false_decline_model = FalseDeclineModel(PAYMENT_MODEL_DIR)
+        print("False Decline Model loaded successfully.")
+    except Exception as e:
+        print(f"Error loading false decline model: {e}")
+
 @app.get("/health")
 def health_check():
     return {
         "status": "healthy",
         "payment_model_loaded": payment_model is not None,
-        "chargeback_model_loaded": chargeback_model is not None
+        "chargeback_model_loaded": chargeback_model is not None,
+        "false_decline_model_loaded": false_decline_model is not None
     }
 
 @app.post("/predict/payment")
@@ -102,5 +113,15 @@ def predict_chargeback(req: Dict[str, Any]):
     try:
         results = chargeback_model.predict(req)
         return results
+    except Exception as e:
+        raise HTTPException(status_code=500, detail=str(e))
+
+@app.post("/predict/false-decline")
+def predict_false_decline(req: FalseDeclineInput):
+    if false_decline_model is None:
+        raise HTTPException(status_code=503, detail="False Decline model not loaded")
+    
+    try:
+        return false_decline_model.predict(req)
     except Exception as e:
         raise HTTPException(status_code=500, detail=str(e))

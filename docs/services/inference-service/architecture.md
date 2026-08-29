@@ -18,15 +18,18 @@ graph TD
     subgraph Inference Gateway [FastAPI - Port 8000]
         C --> D[Payment Failure Router]
         C --> E[Chargeback Win Probability Router]
+        C --> I[False Decline Router]
         
         D --> F[(Layer 2 XGBoost Model)]
         E --> G[(LightGBM / RandomForest Ensemble)]
         E --> H[SHAP Feature Explainer]
+        I --> J[(Random Forest Model)]
     end
     
     F -->|Fraud Score| C
     G -->|Ensemble Probability| C
     H -->|Top Predictive Features| C
+    J -->|False Decline Likelihood| C
     
     C -->|JSON Response| A
     C -->|JSON Response| B
@@ -44,6 +47,12 @@ Provides robust win probability estimation for chargeback representation.
 - **Model**: Multi-model ensemble (Logistic Regression, Decision Trees, Gradient Boosting) using hard-voting/averaging.
 - **Explainability**: Generates SHAP values to extract the Top 3 defining features (e.g., `has_3ds_auth`, `days_remaining`) which are subsequently passed to the LLM agent for drafting contextual rebuttals.
 - **Variance Check**: Computes standard deviation across the ensemble to detect structural model disagreement, triggering "VAMP Adjudication" safe-fallbacks.
+
+### 3. False Decline Detection (Feature D)
+Analyzes transactions blocked by traditional fraud filters to recover genuine revenue (false positives).
+- **Model**: Scikit-Learn Random Forest Classifier (`feature_d.joblib`).
+- **Explainability**: Extracts deterministic rule-based contributors (e.g., `low_ip_risk`, `known_device`) alongside the probability score.
+- **Action Strategy**: Overrides the block with `reverify_and_reverse` if the genuine likelihood exceeds 80%.
 
 ## Docker Dependencies
 The Docker image is built using `python:3.11-slim` and specifically requires the `libgomp1` apt package to successfully execute LightGBM models.
