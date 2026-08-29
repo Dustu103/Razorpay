@@ -20,7 +20,7 @@ const (
 	groqAPIURL     = "https://api.groq.com/openai/v1/chat/completions"
 	groqModel      = "openai/gpt-oss-120b"
 	geminiModel    = "gemini-flash-latest"
-	requestTimeout = 3 * time.Second
+	requestTimeout = 10 * time.Second
 )
 
 // --- OpenAI / Groq Structs ---

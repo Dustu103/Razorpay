@@ -62,14 +62,19 @@ services:
       timeout: 5s
       retries: 5
 
-  ml-service:
+  inference-service:
     build:
-      context: ./backend/ml-service
+      context: ./backend/inference-service
       dockerfile: Dockerfile
-    container_name: razorpay-ml-service
+    container_name: razorpay-inference
     restart: unless-stopped
     ports:
       - "8000:8000"
+    environment:
+      CHARGEBACK_MODEL_DIR: /app/models/chargeback
+    volumes:
+      - ./models/ml:/app/models/ml
+      - ./models/chargeback:/app/models/chargeback
     healthcheck:
       test: ["CMD-SHELL", "python -c \"import urllib.request; urllib.request.urlopen('http://localhost:8000/health')\" || exit 1"]
       interval: 10s
@@ -87,7 +92,7 @@ services:
       REDIS_URL: redis://redis:6379
       QUEUE_NAME: classification_jobs
       APP_ENV: development
-      ML_SERVICE_URL: http://ml-service:8000
+      ML_SERVICE_URL: http://inference-service:8000
       # Layer 3 LLM — free Groq key. Get one at https://console.groq.com
       # Leave empty to run in heuristic-fallback mode (pipeline still works)
       GROQ_API_KEY: ${GROQ_API_KEY:-}
@@ -99,7 +104,7 @@ services:
         condition: service_healthy
       ingestion-service:
         condition: service_healthy
-      ml-service:
+      inference-service:
         condition: service_healthy
 
   audit-service:
@@ -140,6 +145,24 @@ services:
       timeout: 5s
       retries: 5
 
+  chargeback-service:
+    build:
+      context: ./backend/chargeback-service
+      dockerfile: Dockerfile
+    container_name: razorpay-chargeback
+    restart: unless-stopped
+    ports:
+      - "3005:3005"
+    environment:
+      GROQ_API_KEY: ${GROQ_API_KEY:-}
+      GEMINI_API_KEY: ${GEMINI_API_KEY:-}
+      INFERENCE_SERVICE_URL: http://inference-service:8000
+    healthcheck:
+      test: ["CMD-SHELL", "python -c \"import urllib.request; urllib.request.urlopen('http://localhost:3005/health')\" || exit 1"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+
   # ── Frontend ──────────────────────────────────────────────────────────
 
   frontend:
@@ -153,6 +176,7 @@ services:
     environment:
       AUDIT_SERVICE_URL: http://audit-service:3003
       NODE_ENV: production
+      HOSTNAME: "0.0.0.0"
     depends_on:
       audit-service:
         condition: service_healthy

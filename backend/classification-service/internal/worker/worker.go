@@ -146,7 +146,7 @@ func (w *Worker) processJob(ctx context.Context, job models.ClassificationJob) e
 			result.ModelVersion = &mv
 		} else {
 			// Disagreement
-			if l2Out.res.Confidence >= 0.85 {
+			if l2Out.res.Confidence >= 0.55 {
 				// Trust ML due to high confidence on internal data
 				result.Cause = l2Out.res.Cause
 				result.RecommendedAction = l2Out.res.RecommendedAction

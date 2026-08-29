@@ -117,7 +117,7 @@ export default function ComplianceScanner() {
                   <div key={idx} className="violation-card" style={{
                     padding: '1rem', 
                     borderRadius: '8px', 
-                    borderLeft: \`4px solid \${v.severity === 'High' ? '#ef4444' : v.severity === 'Medium' ? '#f59e0b' : '#3b82f6'}\`,
+                    borderLeft: `4px solid ${v.severity === 'High' ? '#ef4444' : v.severity === 'Medium' ? '#f59e0b' : '#3b82f6'}`,
                     backgroundColor: '#f8fafc'
                   }}>
                     <div style={{display: 'flex', justifyContent: 'space-between', marginBottom: '0.5rem'}}>
@@ -129,7 +129,7 @@ export default function ComplianceScanner() {
                            v.detected_by === 'layer2_llm_groq' ? 'Layer 2 (Groq Only)' :
                            v.detected_by === 'layer2_llm_gemini' ? 'Layer 2 (Gemini Only)' : 'Layer 2 (LLM)'}
                         </span>
-                        <span className={\`badge badge-\${v.severity.toLowerCase()}\`} style={{fontSize: '0.75rem', padding: '2px 8px', borderRadius: '12px', background: v.severity==='High'?'#fee2e2':v.severity==='Medium'?'#fef3c7':'#dbeafe', color: v.severity==='High'?'#991b1b':v.severity==='Medium'?'#92400e':'#1e40af'}}>
+                        <span className={`badge badge-${v.severity.toLowerCase()}`} style={{fontSize: '0.75rem', padding: '2px 8px', borderRadius: '12px', background: v.severity==='High'?'#fee2e2':v.severity==='Medium'?'#fef3c7':'#dbeafe', color: v.severity==='High'?'#991b1b':v.severity==='Medium'?'#92400e':'#1e40af'}}>
                           {v.severity} Severity
                         </span>
                       </div>

@@ -1,0 +1,101 @@
+======================================================================
+CHARGEBACK WIN PROBABILITY — 5-MODEL COMPARISON REPORT
+======================================================================
+
+────────────────────────────────────────
+Model: Logistic Regression
+────────────────────────────────────────
+AUC-ROC:   0.8405
+F1 Score:  0.7830
+Accuracy:  0.7600
+Threshold: 0.39
+
+              precision    recall  f1-score   support
+
+        Lose       0.83      0.65      0.73       661
+         Win       0.71      0.87      0.78       660
+
+    accuracy                           0.76      1321
+   macro avg       0.77      0.76      0.76      1321
+weighted avg       0.77      0.76      0.76      1321
+
+
+────────────────────────────────────────
+Model: Random Forest
+────────────────────────────────────────
+AUC-ROC:   0.8873
+F1 Score:  0.8069
+Accuracy:  0.7888
+Threshold: 0.37
+
+              precision    recall  f1-score   support
+
+        Lose       0.86      0.69      0.77       661
+         Win       0.74      0.88      0.81       660
+
+    accuracy                           0.79      1321
+   macro avg       0.80      0.79      0.79      1321
+weighted avg       0.80      0.79      0.79      1321
+
+
+────────────────────────────────────────
+Model: Gradient Boosting
+────────────────────────────────────────
+AUC-ROC:   0.8811
+F1 Score:  0.8058
+Accuracy:  0.7986
+Threshold: 0.3
+
+              precision    recall  f1-score   support
+
+        Lose       0.82      0.76      0.79       661
+         Win       0.78      0.84      0.81       660
+
+    accuracy                           0.80      1321
+   macro avg       0.80      0.80      0.80      1321
+weighted avg       0.80      0.80      0.80      1321
+
+
+────────────────────────────────────────
+Model: XGBoost
+────────────────────────────────────────
+AUC-ROC:   0.8879
+F1 Score:  0.8203
+Accuracy:  0.8229
+Threshold: 0.4
+
+              precision    recall  f1-score   support
+
+        Lose       0.81      0.84      0.83       661
+         Win       0.83      0.81      0.82       660
+
+    accuracy                           0.82      1321
+   macro avg       0.82      0.82      0.82      1321
+weighted avg       0.82      0.82      0.82      1321
+
+
+────────────────────────────────────────
+Model: LightGBM
+────────────────────────────────────────
+AUC-ROC:   0.8829
+F1 Score:  0.8173
+Accuracy:  0.8115
+Threshold: 0.31
+
+              precision    recall  f1-score   support
+
+        Lose       0.83      0.78      0.81       661
+         Win       0.79      0.84      0.82       660
+
+    accuracy                           0.81      1321
+   macro avg       0.81      0.81      0.81      1321
+weighted avg       0.81      0.81      0.81      1321
+
+
+======================================================================
+WINNER / EXPLAINER: XGBoost (AUC-ROC: 0.8879)
+
+Variance Threshold (calibrated): 0.0272
+Automation Rate at threshold:    14.2%
+Accuracy of auto decisions:      93.6%
+======================================================================
