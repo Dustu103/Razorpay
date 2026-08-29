@@ -19,12 +19,13 @@ This model operates within a **Mixture-of-Experts (MoE)** architecture, running 
 The ML model relies on structured tabular data extracted from the incoming webhook payload. 
 
 ### 2.1 Feature Selection
-The following categorical and numerical features are extracted for the model:
+The following categorical and numerical features are strictly aligned with the Go `models.Transaction` struct to prevent inference data drift:
 - `amount_paise` (Numerical): The transaction amount. High-value transactions often trigger distinct issuer fraud filters.
 - `retry_count_so_far` (Numerical): The number of attempts. Crucial for distinguishing between transient `soft_decline` and permanent `hard_decline`.
+- `status_code` (Categorical): The primary gateway payment status code.
 - `bank_response_code` (Categorical): The issuer's specific failure reason (e.g., `51` for Insufficient Funds, `59` for Fraud).
 - `npci_response_code` (Categorical): The NPCI switch code (e.g., `U09`, `ZD`).
-- `customer_bank` (Categorical): The issuing bank identifier, used to learn bank-specific decline behaviors.
+- `issuer_bank` (Categorical): The issuing bank identifier, used to learn bank-specific decline behaviors.
 
 ### 2.2 Synthetic Data Generation (`datasets/scripts/generate_chaos_dataset.py`)
 Because real payment failures are highly imbalanced (failures are rare, and `soft_decline` makes up 80%+ of failures), we bootstrap the initial model using a synthetically generated dataset.
@@ -62,9 +63,9 @@ When a job is picked up by the Go worker, it simultaneously issues two asynchron
 
 ### 4.2 The Tie-Breaker Logic
 The Go worker implements an **Ensemble Tie-Breaker (Layer 4)** to merge these results:
-- **Agreement:** If both models output `soft_decline`, the confidence is artificially boosted to `0.99`.
-- **ML Override:** If they disagree, but the ML model's confidence is very high (e.g., `> 0.85`), the ML model wins. *Why?* The ML model was explicitly trained on our domain-specific taxonomy, whereas the LLM is a generalist.
-- **LLM Tie-Break:** If the ML model's confidence is low (`< 0.85`), it implies an out-of-distribution edge case. The system defers to the LLM's zero-shot reasoning capabilities.
+- **Agreement:** If both models output the same class, the confidence is artificially boosted to `0.99`.
+- **ML Override:** If they disagree, but the ML model's confidence is relatively strong (e.g., `>= 0.55`), the ML model wins. *Why?* The ML model was explicitly trained on our domain-specific taxonomy, whereas the LLM is a generalist and prone to hallucinate `soft_decline` during rate limit fallbacks.
+- **LLM Tie-Break:** If the ML model's confidence is low (`< 0.55`), it implies an out-of-distribution edge case. The system defers to the LLM's zero-shot reasoning capabilities.
 
 ---
 

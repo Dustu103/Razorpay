@@ -13,7 +13,9 @@ sequenceDiagram
     participant CW as Classification Worker
     participant PG as PostgreSQL
     participant L1 as Layer 1 (Deterministic)
-    participant L2 as Layer 2 (Stub/LLM)
+    participant L2 as Layer 2 (ML Model)
+    participant L3 as Layer 3 (LLM)
+    participant L4 as Layer 4 (Ensemble)
 
     RQ->>CW: BLPOP classification_jobs<br/>{"transaction_id": "<uuid>"}
 
@@ -25,20 +27,23 @@ sequenceDiagram
     alt mandate_notification_sent_at is null OR sent < 24h before debit
         L1-->>CW: ClassificationResult<br/>cause=notification_compliance_block<br/>confidence=1.0, layer=1
         CW->>PG: INSERT INTO classifications (layer=1, ...)
-        Note over CW,PG: Done — Layer 2 never called
+        Note over CW,PG: Done — Fast path exit
     else notification was timely (or debit_scheduled_at is null)
         L1-->>CW: nil (fall through)
 
-        CW->>L2: classifyLayer2(txn) [30s timeout]
-
-        alt Success
-            L2-->>CW: ClassificationResult<br/>cause=soft_decline|hard_decline|...<br/>confidence=0.75, layer=2
-        else Timeout / Error
-            L2-->>CW: error
-            CW->>CW: Fallback: cause=soft_decline<br/>confidence=0.0<br/>Flag for manual review
+        par Layer 2 ML Call
+            CW->>L2: classifyLayer2(txn) [15s timeout]
+            L2-->>CW: ML Result
+        and Layer 3 LLM Call
+            CW->>L3: classifyLayer3(txn) [10s timeout]
+            L3-->>CW: LLM Result
         end
 
-        CW->>PG: INSERT INTO classifications (layer=2, ...)
+        CW->>L4: merge(ML, LLM)
+        Note right of L4: If ML >= 0.55 or Agreement -> Trust ML<br/>If ML < 0.55 -> Trust LLM
+
+        L4-->>CW: Final ClassificationResult
+        CW->>PG: INSERT INTO classifications (layer=4, ...)
     end
 ```
 
@@ -59,24 +64,9 @@ IF mandate_notification_sent_at IS NULL
     → action = silent_reschedule
 ELSE:
     → fall through to Layer 2
-```
-
 ---
 
-## Layer 2 Stub Heuristic (replace with LLM)
+## Layer 2, 3, and 4 Logic Details
 
-| status_code / bank_response_code signals | Cause | Action |
-|------------------------------------------|-------|--------|
-| TIMEOUT, GATEWAY_ERROR, NETWORK | `gateway_fault` | `retry_scheduled` |
-| Bank codes 59/14/57, FRAUD, BLOCKED | `fraud_filter_block` | `do_not_retry` |
-| Bank codes 05/12/41/43/54, INVALID_CARD, EXPIRED | `hard_decline` | `do_not_retry` |
-| Everything else | `soft_decline` | `retry_scheduled` |
-
----
-
-## Layer 2 Failure Path
-
-If Layer 2 fails (timeout / schema error):
-- Fallback classification written: `soft_decline`, confidence=0.0, model_version=`"fallback"`
-- Transaction **not** dropped — always produces a classification row
-- Operator should monitor for `confidence=0.0` rows as a manual review queue
+The legacy stub heuristic has been fully replaced by the live **Mixture-of-Experts (MoE) ML + LLM Ensemble**. 
+For a detailed mathematical and structural breakdown of the Layer 2 Random Forest and the Layer 4 Ensemble Tie-Breaker logic, please see [ml-pipeline.md](ml-pipeline.md).
