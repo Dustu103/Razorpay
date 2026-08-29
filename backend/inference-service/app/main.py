@@ -5,9 +5,10 @@ import joblib
 import pandas as pd
 import os
 import time
-
 from .win_probability import DisputeClassifier
 from .models.false_decline import FalseDeclineModel, FalseDeclineInput
+from .models.retry_routing import RetryRoutingModel, RetryRoutingInput
+from .models.dunning import DunningModel, DunningInput
 
 app = FastAPI(title="Razorpay Centralized Inference Gateway")
 
@@ -18,6 +19,8 @@ PAYMENT_MODEL_PATH = os.path.join(PAYMENT_MODEL_DIR, "layer2_payment_failure_mod
 payment_model = None
 chargeback_model = None
 false_decline_model = None
+retry_routing_model = None
+dunning_model = None
 
 class Transaction(BaseModel):
     id: str
@@ -39,7 +42,7 @@ class Transaction(BaseModel):
 
 @app.on_event("startup")
 def load_models():
-    global payment_model, chargeback_model, false_decline_model
+    global payment_model, chargeback_model, false_decline_model, retry_routing_model, dunning_model
     
     # Load Payment Failure Model
     print(f"Loading Payment ML model from {PAYMENT_MODEL_PATH}...")
@@ -68,13 +71,31 @@ def load_models():
     except Exception as e:
         print(f"Error loading false decline model: {e}")
 
+    # Load Retry Routing Model
+    print(f"Loading Retry Routing ML model from {PAYMENT_MODEL_DIR}...")
+    try:
+        retry_routing_model = RetryRoutingModel(PAYMENT_MODEL_DIR)
+        print("Retry Routing Model loaded successfully.")
+    except Exception as e:
+        print(f"Error loading retry routing model: {e}")
+
+    # Load Dunning Model
+    print(f"Loading Dunning ML model from {PAYMENT_MODEL_DIR}...")
+    try:
+        dunning_model = DunningModel(PAYMENT_MODEL_DIR)
+        print("Dunning Model loaded successfully.")
+    except Exception as e:
+        print(f"Error loading dunning model: {e}")
+
 @app.get("/health")
 def health_check():
     return {
         "status": "healthy",
         "payment_model_loaded": payment_model is not None,
         "chargeback_model_loaded": chargeback_model is not None,
-        "false_decline_model_loaded": false_decline_model is not None
+        "false_decline_model_loaded": false_decline_model is not None,
+        "retry_routing_model_loaded": retry_routing_model is not None,
+        "dunning_model_loaded": dunning_model is not None
     }
 
 @app.post("/predict/payment")
@@ -123,5 +144,25 @@ def predict_false_decline(req: FalseDeclineInput):
     
     try:
         return false_decline_model.predict(req)
+    except Exception as e:
+        raise HTTPException(status_code=500, detail=str(e))
+
+@app.post("/predict/retry")
+def predict_retry(req: RetryRoutingInput):
+    if retry_routing_model is None:
+        raise HTTPException(status_code=503, detail="Retry Routing model not loaded")
+    
+    try:
+        return retry_routing_model.predict(req)
+    except Exception as e:
+        raise HTTPException(status_code=500, detail=str(e))
+
+@app.post("/predict/dunning")
+def predict_dunning(req: DunningInput):
+    if dunning_model is None:
+        raise HTTPException(status_code=503, detail="Dunning model not loaded")
+    
+    try:
+        return dunning_model.predict(req)
     except Exception as e:
         raise HTTPException(status_code=500, detail=str(e))

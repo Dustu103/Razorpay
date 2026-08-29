@@ -137,3 +137,118 @@ func Classify(txn *models.Transaction) (*models.ClassificationResult, error) {
 		ModelVersion:      &mlResult.ModelVersion,
 	}, nil
 }
+
+// CheckFalseDecline calls the ML service to check if a fraud filter block is a false decline.
+func CheckFalseDecline(txn *models.Transaction) (float64, string, error) {
+	mlURL := os.Getenv("ML_SERVICE_URL")
+	if mlURL == "" {
+		mlURL = "http://localhost:8000"
+	}
+	endpoint := fmt.Sprintf("%s/predict/false-decline", mlURL)
+
+	payload := map[string]interface{}{
+		"amount":               txn.Amount,
+		"transaction_velocity": 1, // simplified for now
+		"is_known_device":      1,
+		"ip_risk_score":        0.1,
+		"merchant_category":    "retail",
+		"transaction_hour":     12,
+	}
+
+	reqBody, _ := json.Marshal(payload)
+	resp, err := httpClient.Post(endpoint, "application/json", bytes.NewBuffer(reqBody))
+	if err != nil {
+		return 0, "", err
+	}
+	defer resp.Body.Close()
+
+	if resp.StatusCode != http.StatusOK {
+		return 0, "", fmt.Errorf("ML service returned %d", resp.StatusCode)
+	}
+
+	var res struct {
+		Likelihood float64 `json:"false_decline_likelihood"`
+		Action     string  `json:"recommended_action"`
+	}
+	if err := json.NewDecoder(resp.Body).Decode(&res); err != nil {
+		return 0, "", err
+	}
+
+	return res.Likelihood, res.Action, nil
+}
+
+// EvaluateRetry calls the ML service to get the probability of a successful retry.
+func EvaluateRetry(txn *models.Transaction) (float64, string, error) {
+	mlURL := os.Getenv("ML_SERVICE_URL")
+	if mlURL == "" {
+		mlURL = "http://localhost:8000"
+	}
+	endpoint := fmt.Sprintf("%s/predict/retry", mlURL)
+
+	payload := map[string]interface{}{
+		"hour_of_day":             12,
+		"day_of_month":            15,
+		"failure_cause_encoded":   0,
+		"payment_method_encoded":  1,
+		"retry_count":             txn.RetryCountSoFar,
+		"time_since_failure_mins": 30,
+	}
+
+	reqBody, _ := json.Marshal(payload)
+	resp, err := httpClient.Post(endpoint, "application/json", bytes.NewBuffer(reqBody))
+	if err != nil {
+		return 0, "", err
+	}
+	defer resp.Body.Close()
+
+	if resp.StatusCode != http.StatusOK {
+		return 0, "", fmt.Errorf("ML service returned %d", resp.StatusCode)
+	}
+
+	var res struct {
+		Probability float64 `json:"retry_success_probability"`
+		Action      string  `json:"recommended_action"`
+	}
+	if err := json.NewDecoder(resp.Body).Decode(&res); err != nil {
+		return 0, "", err
+	}
+
+	return res.Probability, res.Action, nil
+}
+
+// EvaluateDunning calls the ML service to get the best dunning channel.
+func EvaluateDunning(txn *models.Transaction) (float64, string, error) {
+	mlURL := os.Getenv("ML_SERVICE_URL")
+	if mlURL == "" {
+		mlURL = "http://localhost:8000"
+	}
+	endpoint := fmt.Sprintf("%s/predict/dunning", mlURL)
+
+	payload := map[string]interface{}{
+		"channel_encoded":            0, // start with email
+		"time_since_failure_mins":    60,
+		"customer_tenure_months":     12,
+		"prior_payment_success_rate": 0.8,
+	}
+
+	reqBody, _ := json.Marshal(payload)
+	resp, err := httpClient.Post(endpoint, "application/json", bytes.NewBuffer(reqBody))
+	if err != nil {
+		return 0, "", err
+	}
+	defer resp.Body.Close()
+
+	if resp.StatusCode != http.StatusOK {
+		return 0, "", fmt.Errorf("ML service returned %d", resp.StatusCode)
+	}
+
+	var res struct {
+		Probability float64 `json:"payment_probability"`
+		Channel     string  `json:"recommended_channel"`
+	}
+	if err := json.NewDecoder(resp.Body).Decode(&res); err != nil {
+		return 0, "", err
+	}
+
+	return res.Probability, res.Channel, nil
+}

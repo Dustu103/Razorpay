@@ -166,13 +166,52 @@ func (w *Worker) processJob(ctx context.Context, job models.ClassificationJob) e
 		}
 	}
 
+	// ── Post-Ensemble Orchestration (Features B, C, D) ─────────────────────
+	// 1. Feature D: False Decline Recovery
+	if result.Cause == models.CauseFraudFilterBlock {
+		log.Printf("[classification-worker] txn=%s is fraud_filter_block. Evaluating False Decline...", txn.ID)
+		likelihood, action, err := layer2.CheckFalseDecline(txn)
+		if err == nil {
+			result.Reasoning += fmt.Sprintf(" | [Feature D] False Decline Likelihood: %.2f", likelihood)
+			if action == models.ActionReverifyReverse {
+				result.RecommendedAction = models.ActionReverifyReverse
+				log.Printf("[classification-worker] txn=%s OVERRIDE: False Decline detected! Action set to %s", txn.ID, action)
+			}
+		} else {
+			log.Printf("[classification-worker] CheckFalseDecline failed: %v", err)
+		}
+	}
+
+	// 2. Features B & C: Intelligent Retry & Dunning
+	if result.Cause == models.CauseSoftDecline {
+		log.Printf("[classification-worker] txn=%s is soft_decline. Evaluating Retry Routing...", txn.ID)
+		prob, action, err := layer2.EvaluateRetry(txn)
+		if err == nil {
+			result.Reasoning += fmt.Sprintf(" | [Feature B] Retry Success Probability: %.2f", prob)
+			if action == "retry_scheduled" {
+				result.RecommendedAction = models.ActionRetryScheduled
+			} else {
+				log.Printf("[classification-worker] txn=%s Retry unlikely (%.2f). Evaluating Dunning...", txn.ID, prob)
+				// Fallback to Dunning (Feature C)
+				dunProb, channel, dErr := layer2.EvaluateDunning(txn)
+				if dErr == nil {
+					result.Reasoning += fmt.Sprintf(" | [Feature C] Dunning Channel: %s (Prob: %.2f)", channel, dunProb)
+					// We'll set the recommended action to trigger a specific dunning channel
+					result.RecommendedAction = fmt.Sprintf("trigger_dunning_%s", channel)
+				}
+			}
+		} else {
+			log.Printf("[classification-worker] EvaluateRetry failed: %v", err)
+		}
+	}
+
 	// 5. Persist classification
 	if err := w.db.SaveClassification(ctx, result); err != nil {
 		return fmt.Errorf("save classification: %w", err)
 	}
 
-	log.Printf("[classification-worker] classified txn=%s → cause=%s layer=%d confidence=%.2f",
-		txn.ID, result.Cause, result.Layer, result.Confidence)
+	log.Printf("[classification-worker] classified txn=%s → cause=%s layer=%d confidence=%.2f action=%s",
+		txn.ID, result.Cause, result.Layer, result.Confidence, result.RecommendedAction)
 	return nil
 }
 
