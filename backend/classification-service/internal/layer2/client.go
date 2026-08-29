@@ -252,3 +252,73 @@ func EvaluateDunning(txn *models.Transaction) (float64, string, error) {
 
 	return res.Probability, res.Channel, nil
 }
+
+// CheckRBICompliance calls the compliance service to enforce the 8 AM to 7 PM IST limit and max 3 contacts.
+func CheckRBICompliance(borrowerID string) (bool, string, error) {
+	complianceURL := os.Getenv("COMPLIANCE_SERVICE_URL")
+	if complianceURL == "" {
+		complianceURL = "http://localhost:3004"
+	}
+	endpoint := fmt.Sprintf("%s/api/v1/compliance/rbi-dunning-window?borrower_id=%s", complianceURL, borrowerID)
+
+	resp, err := httpClient.Get(endpoint)
+	if err != nil {
+		return false, "", err
+	}
+	defer resp.Body.Close()
+
+	if resp.StatusCode != http.StatusOK {
+		return false, "", fmt.Errorf("compliance service returned %d", resp.StatusCode)
+	}
+
+	var res struct {
+		Allowed       bool   `json:"allowed"`
+		Reason        string `json:"reason"`
+		IstTime       string `json:"ist_time"`
+		AttemptsToday int    `json:"attempts_today"`
+	}
+	if err := json.NewDecoder(resp.Body).Decode(&res); err != nil {
+		return false, "", err
+	}
+
+	return res.Allowed, res.Reason, nil
+}
+
+// EvaluateBNPLRecovery calls the ML service to determine the best recovery channel based on ecosystem debt.
+func EvaluateBNPLRecovery(borrowerID string, internalDebt, externalDebt float64, daysSinceLogin, demographicAge int, consentRevoked bool, externalDebtDataAgeDays int) (string, error) {
+	mlURL := os.Getenv("ML_SERVICE_URL")
+	if mlURL == "" {
+		mlURL = "http://localhost:8000"
+	}
+	endpoint := fmt.Sprintf("%s/predict/bnpl-recovery", mlURL)
+
+	payload := map[string]interface{}{
+		"internal_debt":               internalDebt,
+		"external_ecosystem_debt":     externalDebt,
+		"days_since_login":            daysSinceLogin,
+		"demographic_age":             demographicAge,
+		"consent_revoked":             consentRevoked,
+		"external_debt_data_age_days": externalDebtDataAgeDays,
+	}
+
+	reqBody, _ := json.Marshal(payload)
+	resp, err := httpClient.Post(endpoint, "application/json", bytes.NewBuffer(reqBody))
+	if err != nil {
+		return "", err
+	}
+	defer resp.Body.Close()
+
+	if resp.StatusCode != http.StatusOK {
+		return "", fmt.Errorf("ML service returned %d", resp.StatusCode)
+	}
+
+	var res struct {
+		RecommendedChannel string `json:"recommended_channel"`
+	}
+	if err := json.NewDecoder(resp.Body).Decode(&res); err != nil {
+		return "", err
+	}
+
+	return res.RecommendedChannel, nil
+}
+

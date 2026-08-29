@@ -12,7 +12,9 @@ import re
 import json
 import requests
 import concurrent.futures
-from fastapi import FastAPI, HTTPException
+import redis
+from datetime import datetime, timezone, timedelta
+from fastapi import FastAPI, HTTPException, Query
 from fastapi.middleware.cors import CORSMiddleware
 from pydantic import BaseModel
 from typing import List, Optional
@@ -28,6 +30,9 @@ app.add_middleware(
 
 GROQ_API_KEY   = os.getenv("GROQ_API_KEY")
 GEMINI_API_KEY = os.getenv("GEMINI_API_KEY")
+REDIS_URL      = os.getenv("REDIS_URL", "redis://redis:6379")
+
+redis_client = redis.Redis.from_url(REDIS_URL, decode_responses=True)
 
 
 # ── Data Models ───────────────────────────────────────────────────────────────
@@ -346,3 +351,59 @@ async def scan_compliance(request: ComplianceRequest):
 @app.get("/health")
 def health_check():
     return {"status": "ok", "service": "compliance-scanner", "version": "2.0-pipeline"}
+
+class RBIDunningResponse(BaseModel):
+    allowed: bool
+    reason: Optional[str] = None
+    ist_time: str
+    attempts_today: int
+
+@app.get("/api/v1/compliance/rbi-dunning-window", response_model=RBIDunningResponse)
+async def rbi_dunning_window(borrower_id: str = Query(...)):
+    # 1. Check strict IST (UTC+5:30) time window (8 AM to 7 PM)
+    ist_tz = timezone(timedelta(hours=5, minutes=30))
+    now_ist = datetime.now(ist_tz)
+    
+    hour = now_ist.hour
+    date_str = now_ist.strftime("%Y-%m-%d")
+    time_str = now_ist.strftime("%Y-%m-%d %H:%M:%S IST")
+    
+    # 2. Redis Anti-Harassment Rate Limiting (max 3 calls per day)
+    redis_key = f"dunning_attempts:{borrower_id}:{date_str}"
+    
+    try:
+        attempts = int(redis_client.get(redis_key) or 0)
+    except Exception as e:
+        print(f"Redis error: {e}")
+        attempts = 0 # Fail open on redis error for the sake of this prototype
+
+    if hour < 8 or hour >= 19:
+        return RBIDunningResponse(
+            allowed=False,
+            reason="outside_legal_hours",
+            ist_time=time_str,
+            attempts_today=attempts
+        )
+        
+    if attempts >= 3:
+        return RBIDunningResponse(
+            allowed=False,
+            reason="anti_harassment_limit_exceeded",
+            ist_time=time_str,
+            attempts_today=attempts
+        )
+        
+    # Increment attempt counter
+    try:
+        redis_client.incr(redis_key)
+        # expire at the end of the day (roughly 24 hours is fine here)
+        redis_client.expire(redis_key, 86400)
+    except Exception as e:
+        print(f"Redis error: {e}")
+        
+    return RBIDunningResponse(
+        allowed=True,
+        reason=None,
+        ist_time=time_str,
+        attempts_today=attempts + 1
+    )

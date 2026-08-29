@@ -6,21 +6,25 @@ import pandas as pd
 import os
 import time
 from .win_probability import DisputeClassifier
-from .models.false_decline import FalseDeclineModel, FalseDeclineInput
-from .models.retry_routing import RetryRoutingModel, RetryRoutingInput
-from .models.dunning import DunningModel, DunningInput
+from app.models.false_decline import FalseDeclineModel, FalseDeclineInput, FalseDeclineOutput
+from app.models.retry_routing import RetryRoutingModel, RetryRoutingInput, RetryRoutingOutput
+from app.models.dunning import DunningModel, DunningInput, DunningOutput
+from app.models.bnpl_edge import BNPLEdgeModel, BNPLEdgeInput, BNPLEdgeOutput
+from app.models.bnpl_recovery import BNPLRecoveryModel, BNPLRecoveryInput, BNPLRecoveryOutput
 
-app = FastAPI(title="Razorpay Centralized Inference Gateway")
+app = FastAPI(title="Razorpay Inference Gateway")
 
 # Paths are resolved via environment variables set in docker-compose
 PAYMENT_MODEL_DIR = os.getenv("PAYMENT_MODEL_DIR", "/app/models/ml")
-PAYMENT_MODEL_PATH = os.path.join(PAYMENT_MODEL_DIR, "layer2_payment_failure_model.pkl")
+models_dir = PAYMENT_MODEL_DIR
 
-payment_model = None
-chargeback_model = None
-false_decline_model = None
-retry_routing_model = None
+layer2_model = None
+retry_model = None
 dunning_model = None
+false_decline_model = None
+bnpl_edge_model = None
+bnpl_recovery_model = None
+chargeback_model = None
 
 class Transaction(BaseModel):
     id: str
@@ -42,71 +46,48 @@ class Transaction(BaseModel):
 
 @app.on_event("startup")
 def load_models():
-    global payment_model, chargeback_model, false_decline_model, retry_routing_model, dunning_model
+    global layer2_model, retry_model, dunning_model, false_decline_model, bnpl_edge_model, bnpl_recovery_model, chargeback_model
     
-    # Load Payment Failure Model
-    print(f"Loading Payment ML model from {PAYMENT_MODEL_PATH}...")
-    try:
-        if os.path.exists(PAYMENT_MODEL_PATH):
-            payment_model = joblib.load(PAYMENT_MODEL_PATH)
-            print("Payment Model loaded successfully.")
-        else:
-            print(f"Warning: Payment model not found at {PAYMENT_MODEL_PATH}")
-    except Exception as e:
-        print(f"Error loading payment model: {e}")
-
+    # Load all models into memory once to avoid disk I/O on inference
+    layer2_model_path = os.path.join(models_dir, "layer2_payment_failure_model.pkl")
+    if os.path.exists(layer2_model_path):
+        layer2_model = joblib.load(layer2_model_path)
+    
+    retry_model = RetryRoutingModel(models_dir)
+    dunning_model = DunningModel(models_dir)
+    false_decline_model = FalseDeclineModel(models_dir)
+    bnpl_edge_model = BNPLEdgeModel(models_dir)
+    bnpl_recovery_model = BNPLRecoveryModel(models_dir)
+    
     # Load Chargeback Model
-    print(f"Loading Chargeback ML model...")
     try:
         chargeback_model = DisputeClassifier()
-        print("Chargeback Model loaded successfully.")
     except Exception as e:
         print(f"Error loading chargeback model: {e}")
-
-    # Load False Decline Model
-    print(f"Loading False Decline ML model from {PAYMENT_MODEL_DIR}...")
-    try:
-        false_decline_model = FalseDeclineModel(PAYMENT_MODEL_DIR)
-        print("False Decline Model loaded successfully.")
-    except Exception as e:
-        print(f"Error loading false decline model: {e}")
-
-    # Load Retry Routing Model
-    print(f"Loading Retry Routing ML model from {PAYMENT_MODEL_DIR}...")
-    try:
-        retry_routing_model = RetryRoutingModel(PAYMENT_MODEL_DIR)
-        print("Retry Routing Model loaded successfully.")
-    except Exception as e:
-        print(f"Error loading retry routing model: {e}")
-
-    # Load Dunning Model
-    print(f"Loading Dunning ML model from {PAYMENT_MODEL_DIR}...")
-    try:
-        dunning_model = DunningModel(PAYMENT_MODEL_DIR)
-        print("Dunning Model loaded successfully.")
-    except Exception as e:
-        print(f"Error loading dunning model: {e}")
 
 @app.get("/health")
 def health_check():
     return {
-        "status": "healthy",
-        "payment_model_loaded": payment_model is not None,
-        "chargeback_model_loaded": chargeback_model is not None,
-        "false_decline_model_loaded": false_decline_model is not None,
-        "retry_routing_model_loaded": retry_routing_model is not None,
-        "dunning_model_loaded": dunning_model is not None
+        "status": "ok",
+        "models_loaded": {
+            "layer2": layer2_model is not None,
+            "retry": retry_model.model is not None,
+            "dunning": dunning_model.model is not None,
+            "false_decline": false_decline_model.model is not None,
+            "bnpl_edge": bnpl_edge_model.model is not None,
+            "bnpl_recovery": bnpl_recovery_model.model is not None
+        }
     }
 
 @app.post("/predict/payment")
 def predict_payment(txn: Transaction):
-    if payment_model is None:
+    if layer2_model is None:
         raise HTTPException(status_code=503, detail="Payment model not loaded")
     
     df = pd.DataFrame([txn.model_dump()])
     try:
-        pred_class = payment_model.predict(df)[0]
-        probs = payment_model.predict_proba(df)[0]
+        pred_class = layer2_model.predict(df)[0]
+        probs = layer2_model.predict_proba(df)[0]
         max_prob = max(probs)
         reason = f"L2_ML_PREDICTION_{pred_class.upper()}"
         
@@ -137,19 +118,36 @@ def predict_chargeback(req: Dict[str, Any]):
     except Exception as e:
         raise HTTPException(status_code=500, detail=str(e))
 
-@app.post("/predict/false-decline")
-def predict_false_decline(req: FalseDeclineInput):
-    if false_decline_model is None:
+@app.post("/predict/false-decline", response_model=FalseDeclineOutput)
+async def predict_false_decline(data: FalseDeclineInput):
+    """
+    Predicts if a fraud_filter_block is actually a false decline (genuine customer).
+    """
+    if false_decline_model.model is None:
         raise HTTPException(status_code=503, detail="False Decline model not loaded")
-    
-    try:
-        return false_decline_model.predict(req)
-    except Exception as e:
-        raise HTTPException(status_code=500, detail=str(e))
+    return false_decline_model.predict(data)
 
-@app.post("/predict/retry")
+@app.post("/predict/checkout-offer", response_model=BNPLEdgeOutput)
+async def predict_checkout_offer(data: BNPLEdgeInput):
+    """
+    Fast edge decision on whether to offer BNPL during a checkout decline.
+    """
+    if bnpl_edge_model.model is None:
+        raise HTTPException(status_code=503, detail="BNPL Edge model not loaded")
+    return bnpl_edge_model.predict(data)
+
+@app.post("/predict/bnpl-recovery", response_model=BNPLRecoveryOutput)
+async def predict_bnpl_recovery(data: BNPLRecoveryInput):
+    """
+    Heavy ML analysis for BNPL installment recovery routing based on phantom debt.
+    """
+    if bnpl_recovery_model.model is None:
+        raise HTTPException(status_code=503, detail="BNPL Recovery model not loaded")
+    return bnpl_recovery_model.predict(data)
+
+@app.post("/predict/retry", response_model=RetryRoutingOutput)
 def predict_retry(req: RetryRoutingInput):
-    if retry_routing_model is None:
+    if retry_model.model is None:
         raise HTTPException(status_code=503, detail="Retry Routing model not loaded")
     
     try:
