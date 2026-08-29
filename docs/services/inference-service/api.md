@@ -77,17 +77,25 @@ Runs the multi-model ensemble on transaction metadata and evidence flags to calc
 **Request Body**:
 ```json
 {
-  "amount": 2500,
-  "currency": "INR",
-  "gateway_error_code": "insufficient_funds",
-  "user_agent": "Mozilla/5.0..."
+  "id": "txn_P8xL9a",
+  "status_code": "FAILED",
+  "bank_response_code": "51",
+  "npci_response_code": "U09",
+  "amount_paise": 2500,
+  "issuer_bank": "HDFC",
+  "retry_count_so_far": 1
 }
 ```
 
 **Response (200 OK)**:
 ```json
 {
-  "fraud_score": 0.92,
-  "risk_level": "high"
+  "transaction_id": "txn_P8xL9a",
+  "layer": 2,
+  "cause": "soft_decline",
+  "confidence": 0.89,
+  "reasoning": "L2_ML_PREDICTION_SOFT_DECLINE",
+  "recommended_action": "retry_scheduled",
+  "model_version": "scikit-learn-rf-v1"
 }
 ```
