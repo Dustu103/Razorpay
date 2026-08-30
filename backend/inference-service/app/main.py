@@ -151,7 +151,7 @@ def predict_retry(req: RetryRoutingInput):
         raise HTTPException(status_code=503, detail="Retry Routing model not loaded")
     
     try:
-        return retry_routing_model.predict(req)
+        return retry_model.predict(req)
     except Exception as e:
         raise HTTPException(status_code=500, detail=str(e))
 

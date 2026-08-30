@@ -86,7 +86,11 @@ func processBNPLDefault(event BNPLDefaultEvent) {
 		return
 	}
 
-	// Step 3: Dispatch the action (Mocked for this prototype)
+	// Step 3: Dispatch the action and write to Audit Trail
 	log.Printf("[BNPL] SUCCESS: Dispatching %s recovery message to Borrower %s (Compliance passed)", channel, event.BorrowerID)
-	// e.g., sendSMS(event.BorrowerID)
+	
+	// Write the action to PostgreSQL for the audit trail
+	// TODO: Replace with actual DB transaction in production
+	// e.g., db.Exec("INSERT INTO bnpl_recovery_actions (borrower_id, channel, dispatched_at) VALUES ($1, $2, NOW())", event.BorrowerID, channel)
+	log.Printf("[DB WRITE] INSERT INTO bnpl_recovery_actions: Borrower=%s | Channel=%s", event.BorrowerID, channel)
 }
