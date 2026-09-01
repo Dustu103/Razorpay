@@ -43,3 +43,22 @@ CREATE INDEX IF NOT EXISTS idx_classifications_transaction_id
 
 CREATE INDEX IF NOT EXISTS idx_classifications_cause
     ON classifications (cause);
+
+-- ─────────────────────────────────────────────────────────────
+-- b2b_tax_lever_approvals: Human-in-the-loop approvals for B2B tax levers
+-- ─────────────────────────────────────────────────────────────
+CREATE TABLE IF NOT EXISTS b2b_tax_lever_approvals (
+    id                  UUID        PRIMARY KEY DEFAULT gen_random_uuid(),
+    invoice_id          TEXT        NOT NULL UNIQUE,          -- prevents duplicate rows on cron re-runs
+    customer_name       TEXT        NOT NULL,
+    is_msme             BOOLEAN     NOT NULL DEFAULT FALSE,
+    days_late           INT         NOT NULL,
+    tax_rule_triggered  TEXT        NOT NULL,           -- e.g. 'Sec 43B Penalty', 'Rule 37 ITC Reversal'
+    draft_email_body    TEXT        NOT NULL,
+    status              TEXT        NOT NULL DEFAULT 'pending', -- pending, approved, rejected
+    created_at          TIMESTAMPTZ NOT NULL DEFAULT NOW(),
+    updated_at          TIMESTAMPTZ NOT NULL DEFAULT NOW()
+);
+
+CREATE INDEX IF NOT EXISTS idx_b2b_approvals_status
+    ON b2b_tax_lever_approvals (status);

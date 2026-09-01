@@ -11,6 +11,7 @@ from app.models.retry_routing import RetryRoutingModel, RetryRoutingInput, Retry
 from app.models.dunning import DunningModel, DunningInput, DunningOutput
 from app.models.bnpl_edge import BNPLEdgeModel, BNPLEdgeInput, BNPLEdgeOutput
 from app.models.bnpl_recovery import BNPLRecoveryModel, BNPLRecoveryInput, BNPLRecoveryOutput
+from app.models.b2b_agent import B2BAgentModel, B2BInvoiceInput, B2BInvoiceOutput
 
 app = FastAPI(title="Razorpay Inference Gateway")
 
@@ -25,6 +26,7 @@ false_decline_model = None
 bnpl_edge_model = None
 bnpl_recovery_model = None
 chargeback_model = None
+b2b_agent_model = None
 
 class Transaction(BaseModel):
     id: str
@@ -58,12 +60,17 @@ def load_models():
     false_decline_model = FalseDeclineModel(models_dir)
     bnpl_edge_model = BNPLEdgeModel(models_dir)
     bnpl_recovery_model = BNPLRecoveryModel(models_dir)
-    
+
     # Load Chargeback Model
     try:
         chargeback_model = DisputeClassifier()
     except Exception as e:
         print(f"Error loading chargeback model: {e}")
+
+    # B2B Agent — no model file needed, deterministic routing
+    global b2b_agent_model
+    b2b_agent_model = B2BAgentModel()
+    print("[inference] B2B Agent loaded (deterministic + Groq LLM)")
 
 @app.get("/health")
 def health_check():
@@ -162,5 +169,19 @@ def predict_dunning(req: DunningInput):
     
     try:
         return dunning_model.predict(req)
+    except Exception as e:
+        raise HTTPException(status_code=500, detail=str(e))
+
+@app.post("/agent/b2b-invoice", response_model=B2BInvoiceOutput)
+def b2b_invoice_agent(data: B2BInvoiceInput):
+    """
+    B2B Tax Lever Agent.
+    Deterministically routes overdue invoices to the correct Indian Tax statute
+    and uses Groq Llama 3 70B to draft a formal legal notice.
+    """
+    if b2b_agent_model is None:
+        raise HTTPException(status_code=503, detail="B2B Agent not loaded")
+    try:
+        return b2b_agent_model.predict(data)
     except Exception as e:
         raise HTTPException(status_code=500, detail=str(e))

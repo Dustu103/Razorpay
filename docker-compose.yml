@@ -107,6 +107,29 @@ services:
       inference-service:
         condition: service_healthy
 
+  b2b-recovery-service:
+    build:
+      context: ./backend/b2b-recovery-service
+      dockerfile: Dockerfile
+    container_name: razorpay-b2b-recovery
+    restart: unless-stopped
+    ports:
+      - "3006:3006"
+    environment:
+      DATABASE_URL: postgres://razorpay:razorpay@postgres:5432/razorpay_classifier?sslmode=disable
+      AGENT_SERVICE_URL: http://inference-service:8000/agent/b2b-invoice
+      PORT: "3006"
+    depends_on:
+      postgres:
+        condition: service_healthy
+      inference-service:
+        condition: service_healthy
+    healthcheck:
+      test: ["CMD-SHELL", "wget -qO- http://localhost:3006/health || exit 1"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+
   audit-service:
     build:
       context: ./backend/audit-service

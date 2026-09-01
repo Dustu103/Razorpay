@@ -57,7 +57,7 @@ export default async function TransactionListPage({ searchParams }: Props) {
 
       {/* Stats row */}
       <div className="stats-row">
-        <div className="stat-card" style={{ '--accent-color': 'var(--blue)' } as any}>
+        <div className="stat-card" style={{ '--accent-color': 'var(--indigo)' } as any}>
           <div className="stat-icon"><BarChart2 size={24} /></div>
           <div className="stat-value">{count}</div>
           <div className="stat-label">Total Classifications</div>
@@ -109,7 +109,7 @@ export default async function TransactionListPage({ searchParams }: Props) {
           <div className="empty-state error">
             <div className="empty-icon"><AlertCircle size={48} /></div>
             <div className="empty-title">Could not reach audit service</div>
-            <div className="empty-sub">Make sure the backend is running:<br /><code style={{ fontFamily: 'var(--mono)', fontSize: '0.8rem', color: 'var(--blue)' }}>docker-compose up</code></div>
+            <div className="empty-sub">Make sure the backend is running:<br /><code style={{ fontFamily: 'var(--mono)', fontSize: '0.8rem', color: 'var(--indigo)' }}>docker-compose up</code></div>
           </div>
         </div>
       ) : data.length === 0 ? (
@@ -117,7 +117,7 @@ export default async function TransactionListPage({ searchParams }: Props) {
           <div className="empty-state">
             <div className="empty-icon"><Inbox size={48} /></div>
             <div className="empty-title">No classifications yet</div>
-            <div className="empty-sub">Send a <code style={{ fontFamily: 'var(--mono)', color: 'var(--blue)' }}>payment.failed</code> webhook to the ingestion service to see results here.</div>
+            <div className="empty-sub">Send a <code style={{ fontFamily: 'var(--mono)', color: 'var(--indigo)' }}>payment.failed</code> webhook to the ingestion service to see results here.</div>
           </div>
         </div>
       ) : (

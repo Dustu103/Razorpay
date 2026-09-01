@@ -38,3 +38,6 @@ obj/
 # OS
 .DS_Store
 Thumbs.db
+
+# Private presentation notes (never push to git)
+PRESENTATION.md
