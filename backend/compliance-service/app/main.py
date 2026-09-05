@@ -226,7 +226,7 @@ def _call_groq(flow_json: str) -> List[dict]:
             "https://api.groq.com/openai/v1/chat/completions",
             headers={"Authorization": f"Bearer {GROQ_API_KEY}", "Content-Type": "application/json"},
             json={
-                "model": "groq/compound",
+                "model": "llama3-70b-8192",
                 "messages": [
                     {"role": "system", "content": LLM_SYSTEM_PROMPT},
                     {"role": "user",   "content": flow_json},
@@ -250,7 +250,7 @@ def _call_gemini(flow_json: str) -> List[dict]:
     try:
         url = (
             "https://generativelanguage.googleapis.com/v1beta/models/"
-            f"gemini-3.6-flash:generateContent?key={GEMINI_API_KEY}"
+            f"gemini-1.5-flash:generateContent?key={GEMINI_API_KEY}"
         )
         resp = requests.post(
             url,

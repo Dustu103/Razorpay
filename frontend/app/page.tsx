@@ -3,6 +3,7 @@ import { fetchClassifications, formatAmount, formatDate } from '@/lib/api';
 import type { ClassificationView, Cause } from '@/types/classification';
 import FilterBar from '@/components/FilterBar';
 import SimulatorPanel from '@/components/SimulatorPanel';
+import DropOffFunnel from '@/components/DropOffFunnel';
 import { LayerBadge } from '@/components/ui/LayerBadge';
 import { CauseBadge } from '@/components/ui/CauseBadge';
 import { ConfidenceBar } from '@/components/ui/ConfidenceBar';
@@ -10,6 +11,8 @@ import {
   BarChart2, Zap, Bot, Target, AlertTriangle, CheckCircle2, 
   Inbox, AlertCircle, BrainCircuit, Network
 } from 'lucide-react';
+
+export const dynamic = 'force-dynamic';
 
 interface Props {
   searchParams: Promise<{ cause?: string; layer?: string; limit?: string; offset?: string }>;
@@ -27,6 +30,7 @@ export default async function TransactionListPage({ searchParams }: Props) {
     data = res.data;
     count = res.count;
   } catch (e: any) {
+    console.error("PAGE FETCH ERROR:", e);
     error = e.message;
   }
 
@@ -54,6 +58,10 @@ export default async function TransactionListPage({ searchParams }: Props) {
           {cause && <><span className="page-sub-dot" /> Filtered: {cause}</>}
         </p>
       </div>
+
+      <DropOffFunnel />
+
+      <h2 style={{ fontSize: '1.25rem', fontWeight: 600, color: 'var(--text)', marginBottom: '1rem', marginTop: '1rem', paddingLeft: '4px' }}>Post-Gateway Classifications</h2>
 
       {/* Stats row */}
       <div className="stats-row">

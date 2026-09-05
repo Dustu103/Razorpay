@@ -1,0 +1,43 @@
+{
+  "actions": [
+    "none",
+    "whatsapp",
+    "sms",
+    "email"
+  ],
+  "categorical_cols": [
+    "payment_method",
+    "device",
+    "diagnosis"
+  ],
+  "numerical_cols": [
+    "cart_value",
+    "duration_sec",
+    "attempt_count",
+    "events_count",
+    "sequence_entropy",
+    "mean_inter_event_time",
+    "is_returning_customer"
+  ],
+  "feature_names": [
+    "cart_value",
+    "duration_sec",
+    "attempt_count",
+    "events_count",
+    "sequence_entropy",
+    "mean_inter_event_time",
+    "is_returning_customer",
+    "payment_method_card",
+    "payment_method_cod",
+    "payment_method_netbanking",
+    "payment_method_upi",
+    "device_desktop",
+    "device_mobile_android",
+    "device_mobile_ios",
+    "diagnosis_genuine_browse_abandon",
+    "diagnosis_otp_timeout",
+    "diagnosis_price_shock_breakdown",
+    "diagnosis_upi_app_switch_abort",
+    "diagnosis_vpa_validation_failure"
+  ]
+}

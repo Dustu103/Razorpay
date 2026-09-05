@@ -70,13 +70,13 @@ Results: 13 passed, 0 failed
 ```
 
 **Date:** 2026-08-27 (v2.0 — Multi-LLM Ensemble)  
-**Environment:** Docker network `razorpay_default` | LLM: `groq/compound` + `gemini-3.6-flash` (concurrent)
+**Environment:** Docker network `razorpay_default` | LLM: `llama3-70b-8192` + `gemini-1.5-flash` (concurrent)
 
 ---
 
 ## 4. Observed LLM Output Quality — Ensemble Behaviour
 
-On the worst-case test, Layer 2 runs `groq/compound` and `gemini-3.6-flash` concurrently via `ThreadPoolExecutor`. Violations are merged and tagged:
+On the worst-case test, Layer 2 runs `llama3-70b-8192` and `gemini-1.5-flash` concurrently via `ThreadPoolExecutor`. Violations are merged and tagged:
 
 | `detected_by` value | Meaning |
 |---------------------|---------|
@@ -93,6 +93,6 @@ Consensus violations are highest-confidence findings — two independent LLMs wi
 
 | Limitation | Impact | Plan |
 |------------|--------|------|
-| Groq `groq/compound` model is used (not GPT-4 class) | May miss subtle implied dark patterns (e.g. UI contrast manipulation) | Upgrade to higher reasoning model for prod |
+| Groq `llama3-70b-8192` model is used (not GPT-4 class) | May miss subtle implied dark patterns (e.g. UI contrast manipulation) | Upgrade to higher reasoning model for prod |
 | Input is JSON schema, not live UI | Cannot detect visual dark patterns (e.g. grey-on-white "decline" buttons) | Future: add screenshot + Gemini Vision support |
 | No deduplication of repeated violations | Same rule can appear twice if two elements both violate it | Deduplicate by `rule_broken` before returning response |

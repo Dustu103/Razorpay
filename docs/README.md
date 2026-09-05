@@ -20,6 +20,24 @@ docs/
 │   │   ├── architecture.md
 │   │   └── api.md
 │   │
+│   ├── dropoff-service/                       ← Real-Time Checkout Drop-Off Recovery (Go + Causal ML)
+│   │   ├── hld.md
+│   │   ├── lld.md
+│   │   ├── testing-and-results.md
+│   │   ├── decisions/
+│   │   └── runbooks/
+│   │
+│   ├── b2b-recovery-service/                  ← Autonomous B2B Overdue Invoice Recovery
+│   │   ├── hld.md
+│   │   ├── lld.md
+│   │   ├── testing-and-results.md
+│   │   ├── decisions/
+│   │   └── runbooks/
+│   │
+│   ├── bnpl-edge-service/                     ← BNPL Edge Payment Authorization
+│   │   ├── hld.md
+│   │   └── lld.md
+│   │
 │   ├── chargeback-service/                    ← Autonomous Chargeback Pre-emption (Pillar A)
 │   │   ├── architecture.md
 │   │   ├── runbooks.md
@@ -111,6 +129,21 @@ docs/
 | [Multi-LLM Integration](./services/compliance-service/multi-llm-integration.md) | Concurrent Groq + Gemini ensemble, Union strategy |
 | [Testing & Results](./services/compliance-service/testing-and-results.md) | E2E test pass results |
 | [ADRs](./services/compliance-service/decisions/) | Multi-LLM Union Strategy, JSON schema validation |
+
+#### Checkout Drop-Off Recovery (Causal Revenue Engine)
+| Document | Purpose |
+|----------|---------|
+| [HLD](./services/dropoff-service/hld.md) | Real-time Redis ZSET session tracker & Causal Gateway orchestration |
+| [LLD](./services/dropoff-service/lld.md) | Event stream analysis, state machine, and diagnostic classifier |
+| [ADR-001](./services/dropoff-service/decisions/ADR-001-causal-dropoff-detection.md) | Causal Net-EV Engine vs naive abandoned cart blasting |
+| [Runbooks](./services/dropoff-service/runbooks/RB-001-dropoff-service-operations.md) | Operational runbooks, health checks & queue troubleshooting |
+| [Testing & Results](./services/dropoff-service/testing-and-results.md) | Invariants test pass results, vertical benchmarks, and model artifacts |
+
+#### B2B Invoice Recovery (Tax Lever)
+| Document | Purpose |
+|----------|---------|
+| [HLD](./services/b2b-recovery-service/hld.md) | Hybrid event-batch pattern & statutory tax penalty automation |
+| [LLD](./services/b2b-recovery-service/lld.md) | Database schemas, cron scheduler, and Groq LLM notice generator |
 
 ### Microservices
 

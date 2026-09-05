@@ -12,6 +12,7 @@ from app.models.dunning import DunningModel, DunningInput, DunningOutput
 from app.models.bnpl_edge import BNPLEdgeModel, BNPLEdgeInput, BNPLEdgeOutput
 from app.models.bnpl_recovery import BNPLRecoveryModel, BNPLRecoveryInput, BNPLRecoveryOutput
 from app.models.b2b_agent import B2BAgentModel, B2BInvoiceInput, B2BInvoiceOutput
+from app.models.intervention_model import InterventionModel, InterventionInput, InterventionOutput
 
 app = FastAPI(title="Razorpay Inference Gateway")
 
@@ -27,6 +28,7 @@ bnpl_edge_model = None
 bnpl_recovery_model = None
 chargeback_model = None
 b2b_agent_model = None
+intervention_model = None
 
 class Transaction(BaseModel):
     id: str
@@ -68,9 +70,11 @@ def load_models():
         print(f"Error loading chargeback model: {e}")
 
     # B2B Agent — no model file needed, deterministic routing
-    global b2b_agent_model
+    global b2b_agent_model, intervention_model
     b2b_agent_model = B2BAgentModel()
+    intervention_model = InterventionModel()
     print("[inference] B2B Agent loaded (deterministic + Groq LLM)")
+    print("[inference] Intervention Scoring loaded (EV Math)")
 
 @app.get("/health")
 def health_check():
@@ -82,7 +86,9 @@ def health_check():
             "dunning": dunning_model.model is not None,
             "false_decline": false_decline_model.model is not None,
             "bnpl_edge": bnpl_edge_model.model is not None,
-            "bnpl_recovery": bnpl_recovery_model.model is not None
+            "bnpl_recovery": bnpl_recovery_model.model is not None,
+            "intervention": intervention_model is not None and intervention_model.s_model is not None,
+            "b2b_agent": b2b_agent_model is not None
         }
     }
 
@@ -183,5 +189,17 @@ def b2b_invoice_agent(data: B2BInvoiceInput):
         raise HTTPException(status_code=503, detail="B2B Agent not loaded")
     try:
         return b2b_agent_model.predict(data)
+    except Exception as e:
+        raise HTTPException(status_code=500, detail=str(e))
+
+@app.post("/predict/intervention", response_model=InterventionOutput)
+def predict_intervention(data: InterventionInput):
+    """
+    ML scoring model to determine Expected Value of an intervention.
+    """
+    if intervention_model is None:
+        raise HTTPException(status_code=503, detail="Intervention model not loaded")
+    try:
+        return intervention_model.predict(data)
     except Exception as e:
         raise HTTPException(status_code=500, detail=str(e))

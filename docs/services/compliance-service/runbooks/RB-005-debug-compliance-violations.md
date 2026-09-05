@@ -15,8 +15,8 @@ Layer 1: Deterministic Engine (regex + state inspection) — zero LLM cost
     │
     ▼
 Layer 2: Multi-LLM Ensemble — Groq + Gemini run CONCURRENTLY via ThreadPoolExecutor
-    │          ├── groq/compound
-    │          └── gemini-3.6-flash
+    │          ├── llama3-70b-8192
+    │          └── gemini-1.5-flash
     ▼
 Aggregation: Union merge + deduplication by (screen_name, rule_broken)
     │          ├── detected_by: layer1_deterministic

@@ -33,24 +33,13 @@ STATUTE_43B = {
     "rule_label": "Sec 43B(h) Penalty",
 }
 
-STATUTE_RULE37 = {
-    "name": "Rule 37 of the CGST Rules, 2017",
-    "threshold_days": 180,
-    "penalty": "mandatory reversal of Input Tax Credit (ITC) already claimed, plus interest under Section 50 and penalties under Section 122 of the CGST Act",
-    "action": "tax_lever_GST",
-    "rule_label": "CGST Rule 37 – ITC Reversal",
-}
-
 # ─── Deterministic Router ─────────────────────────────────────────────────────
 
 def route_invoice(data: B2BInvoiceInput) -> Optional[dict]:
     """
     Pure deterministic compliance routing.
     Returns the applicable statute dict or None if no threshold is breached.
-    Rule 37 (180 days) takes priority over Sec 43B (45 days MSME).
     """
-    if data.days_late >= STATUTE_RULE37["threshold_days"]:
-        return STATUTE_RULE37
     if data.days_late >= STATUTE_43B["threshold_days"] and data.is_msme_registered:
         return STATUTE_43B
     return None
@@ -82,8 +71,8 @@ def _draft_email(data: B2BInvoiceInput, statute: dict) -> str:
                     {
                         "role": "system",
                         "content": (
-                            "You are an expert Indian corporate lawyer and accounts receivable manager. "
-                            "You write formal, polite, but firm legal notices. "
+                            "You are a professional accounts receivable coordinator. "
+                            "You write factual, polite, non-threatening update emails. "
                             "Do NOT invent any facts not explicitly provided. "
                             "Keep the email to exactly 3 short paragraphs."
                         ),
@@ -91,17 +80,17 @@ def _draft_email(data: B2BInvoiceInput, statute: dict) -> str:
                     {
                         "role": "user",
                         "content": (
-                            f"Draft a formal legal notice email for the following overdue invoice:\n"
+                            f"Draft a polite, factual email for the following overdue invoice:\n"
                             f"- Customer: {data.customer_name}\n"
                             f"- Invoice ID: {data.id}\n"
                             f"- Amount Due: ₹{data.amount_due:,.0f}\n"
                             f"- Days Overdue: {data.days_late}\n"
                             f"- Applicable Statute: {statute['name']}\n"
-                            f"- Consequence of Non-Payment: {statute['penalty']}\n\n"
+                            f"- Potential Consequence: {statute['penalty']}\n\n"
                             f"The email must:\n"
                             f"1. State the overdue amount and days.\n"
-                            f"2. Cite the exact statute and the legal consequence for the buyer.\n"
-                            f"3. Request immediate payment and ask for a payment timeline.\n"
+                            f"2. Note that the delay may have tax implications under the cited statute.\n"
+                            f"3. Recommend that they confirm with their own tax advisor, and politely ask for a payment timeline.\n"
                             f"Sign off as 'Accounts Receivable Team'."
                         ),
                     },
@@ -117,11 +106,11 @@ def _draft_email(data: B2BInvoiceInput, statute: dict) -> str:
     # Deterministic fallback template (no API key required)
     return (
         f"Dear Finance Team,\n\n"
-        f"This is a formal notice regarding Invoice {data.id} for ₹{data.amount_due:,.0f} "
+        f"This is a factual update regarding Invoice {data.id} for ₹{data.amount_due:,.0f} "
         f"which has been outstanding for {data.days_late} days.\n\n"
-        f"Under {statute['name']}, this delay triggers {statute['penalty']}. "
-        f"We strongly urge immediate settlement to avoid these adverse consequences.\n\n"
-        f"Kindly confirm your payment timeline at the earliest.\n\n"
+        f"Please be advised that under {statute['name']}, this delay may trigger {statute['penalty']}. "
+        f"We recommend consulting with your tax advisor to review any potential impact to your filings.\n\n"
+        f"Kindly confirm your payment timeline at your earliest convenience.\n\n"
         f"Regards,\nAccounts Receivable Team"
     )
 

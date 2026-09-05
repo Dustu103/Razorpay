@@ -1,6 +1,6 @@
 'use client';
 
-import { useState } from 'react';
+import { useState, useEffect } from 'react';
 import { 
   Loader2, 
   ShieldCheck, 
@@ -46,6 +46,15 @@ export default function ChargebackPreemptionPage() {
   const [isEditing, setIsEditing] = useState(false);
   const [editedNarrative, setEditedNarrative] = useState('');
   const [approved, setApproved] = useState(false);
+
+  // Track 03 — Batch summary state (Gap 1)
+  const [batchSummary, setBatchSummary] = useState<any>(null);
+  useEffect(() => {
+    fetch('http://localhost:3005/api/v1/batch-summary')
+      .then(r => r.json())
+      .then(setBatchSummary)
+      .catch(() => {});
+  }, []);
 
   // Network reason codes mapping for UI selection
   const reasonCodeOptions: Record<string, { value: string; label: string }[]> = {
@@ -129,9 +138,11 @@ export default function ChargebackPreemptionPage() {
 
   const getActionColor = (action: string) => {
     switch (action) {
-      case 'auto_submit': return { bg: 'var(--green-dim)', text: 'var(--green)', border: 'rgba(52, 211, 153, 0.3)', label: 'Auto Submit' };
-      case 'one_tap_approval': return { bg: 'var(--indigo-dim)', text: 'var(--indigo)', border: 'rgba(129, 140, 248, 0.3)', label: 'One-Tap Approve' };
-      case 'deflect_via_refund': return { bg: 'var(--red-dim)', text: 'var(--red)', border: 'rgba(248, 113, 113, 0.3)', label: 'Deflect (Refund)' };
+      case 'auto_submit':          return { bg: 'var(--green-dim)',  text: 'var(--green)',  border: 'rgba(52, 211, 153, 0.3)',  label: 'Auto Submit' };
+      case 'one_tap_approval':     return { bg: 'var(--indigo-dim)', text: 'var(--indigo)', border: 'rgba(129, 140, 248, 0.3)', label: 'One-Tap Approve' };
+      case 'deflect_via_refund':   return { bg: 'var(--red-dim)',    text: 'var(--red)',    border: 'rgba(248, 113, 113, 0.3)', label: 'Deflect (Refund)' };
+      case 'instant_deflect':      return { bg: 'var(--red-dim)',    text: 'var(--red)',    border: 'rgba(248, 113, 113, 0.3)', label: 'Instant Deflect' };
+      case 'escalate_to_specialist': return { bg: 'var(--amber-dim)', text: 'var(--amber)', border: 'rgba(251, 191, 36, 0.3)',   label: 'Escalate to Specialist' };
       default: return { bg: 'var(--amber-dim)', text: 'var(--amber)', border: 'rgba(251, 191, 36, 0.3)', label: 'Human Review' };
     }
   };
@@ -170,6 +181,37 @@ export default function ChargebackPreemptionPage() {
           </div>
         </div>
       </div>
+
+      {/* Track 03 — Batch Recovery Stats Banner */}
+      {batchSummary && (
+        <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(160px, 1fr))', gap: '1rem', marginBottom: '2rem', padding: '1.25rem', background: 'linear-gradient(135deg, rgba(139,92,246,0.08) 0%, rgba(16,185,129,0.06) 100%)', borderRadius: '12px', border: '1px solid rgba(139,92,246,0.2)' }}>
+          <div style={{ textAlign: 'center' }}>
+            <div style={{ fontSize: '0.72rem', color: 'var(--text-muted)', textTransform: 'uppercase', letterSpacing: '0.06em', fontWeight: 600, marginBottom: '4px' }}>50-Dispute Batch Processed</div>
+            <div style={{ fontSize: '1.8rem', fontWeight: 800, color: 'var(--text)' }}>{batchSummary.total_disputes}</div>
+            <div style={{ fontSize: '0.75rem', color: 'var(--text-muted)' }}>Visa · MC · RuPay</div>
+          </div>
+          <div style={{ textAlign: 'center' }}>
+            <div style={{ fontSize: '0.72rem', color: 'var(--text-muted)', textTransform: 'uppercase', letterSpacing: '0.06em', fontWeight: 600, marginBottom: '4px' }}>Est. Revenue Recovered</div>
+            <div style={{ fontSize: '1.8rem', fontWeight: 800, color: 'var(--green)' }}>₹{(batchSummary.estimated_recovered_inr/1000).toFixed(0)}K</div>
+            <div style={{ fontSize: '0.75rem', color: 'var(--text-muted)' }}>of ₹{(batchSummary.total_dispute_value_inr/1000).toFixed(0)}K at risk</div>
+          </div>
+          <div style={{ textAlign: 'center' }}>
+            <div style={{ fontSize: '0.72rem', color: 'var(--text-muted)', textTransform: 'uppercase', letterSpacing: '0.06em', fontWeight: 600, marginBottom: '4px' }}>Our Recovery Rate</div>
+            <div style={{ fontSize: '1.8rem', fontWeight: 800, color: 'var(--indigo)' }}>{batchSummary.your_recovery_rate}</div>
+            <div style={{ fontSize: '0.75rem', color: 'var(--text-muted)' }}>vs 6.7% national avg</div>
+          </div>
+          <div style={{ textAlign: 'center' }}>
+            <div style={{ fontSize: '0.72rem', color: 'var(--text-muted)', textTransform: 'uppercase', letterSpacing: '0.06em', fontWeight: 600, marginBottom: '4px' }}>Arbitration Fees Saved</div>
+            <div style={{ fontSize: '1.8rem', fontWeight: 800, color: 'var(--amber)' }}>₹{(batchSummary.estimated_arbitration_fees_saved_inr/1000).toFixed(1)}K</div>
+            <div style={{ fontSize: '0.75rem', color: 'var(--text-muted)' }}>by smart deflection</div>
+          </div>
+          <div style={{ textAlign: 'center' }}>
+            <div style={{ fontSize: '0.72rem', color: 'var(--text-muted)', textTransform: 'uppercase', letterSpacing: '0.06em', fontWeight: 600, marginBottom: '4px' }}>Escalated to Specialist</div>
+            <div style={{ fontSize: '1.8rem', fontWeight: 800, color: 'var(--purple)' }}>{batchSummary.escalated_to_specialist}</div>
+            <div style={{ fontSize: '0.75rem', color: 'var(--text-muted)' }}>High-value / repeat abuse</div>
+          </div>
+        </div>
+      )}
 
       <div style={{ display: 'grid', gridTemplateColumns: '400px 1fr', gap: '2rem', alignItems: 'start' }}>
         

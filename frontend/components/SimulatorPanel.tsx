@@ -3,6 +3,7 @@
 import { useState } from 'react';
 import { simulateWebhook } from '@/app/actions';
 import { Play, Loader2, Code, Zap } from 'lucide-react';
+import MockCheckoutModal from './MockCheckoutModal';
 
 const SCENARIOS = [
   {
@@ -71,6 +72,7 @@ export default function SimulatorPanel() {
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState('');
   const [success, setSuccess] = useState('');
+  const [showCheckoutDemo, setShowCheckoutDemo] = useState(false);
   
   const [customJson, setCustomJson] = useState(JSON.stringify(SCENARIOS[0].payload, null, 2));
   const [mode, setMode] = useState<'presets' | 'custom'>('presets');
@@ -149,6 +151,26 @@ export default function SimulatorPanel() {
               {s.name}
             </button>
           ))}
+          <button
+            onClick={() => setShowCheckoutDemo(true)}
+            style={{
+              background: 'linear-gradient(135deg, #FF6B6B 0%, #FF8E53 100%)',
+              border: 'none',
+              color: 'white',
+              padding: '0.5rem 1rem',
+              borderRadius: '8px',
+              cursor: 'pointer',
+              fontSize: '0.82rem',
+              fontWeight: 600,
+              display: 'flex',
+              alignItems: 'center',
+              gap: '0.4rem',
+              boxShadow: '0 4px 12px rgba(255, 107, 107, 0.3)'
+            }}
+          >
+            <Zap size={14} color="white" />
+            Launch Mock Checkout
+          </button>
         </div>
       ) : (
         <div>
@@ -182,6 +204,13 @@ export default function SimulatorPanel() {
 
       {error && <div style={{ marginTop: '1rem', color: 'var(--red)', fontSize: '0.8rem', background: 'var(--red-dim)', padding: '0.5rem 0.75rem', borderRadius: '6px', border: '1px solid rgba(248,113,113,0.25)' }}>{error}</div>}
       {success && <div style={{ marginTop: '1rem', color: 'var(--green)', fontSize: '0.8rem', background: 'var(--green-dim)', padding: '0.5rem 0.75rem', borderRadius: '6px', border: '1px solid rgba(52,211,153,0.25)' }}>{success}</div>}
+
+      {showCheckoutDemo && (
+        <MockCheckoutModal 
+          onClose={() => setShowCheckoutDemo(false)} 
+          onEventFired={(evt) => console.log('Checkout event fired:', evt)}
+        />
+      )}
     </div>
   );
 }

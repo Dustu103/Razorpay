@@ -19,8 +19,8 @@ Layer 2 of the compliance pipeline runs **two LLMs concurrently** to detect sema
 
 | Model | Provider | Role | Context Window |
 |-------|----------|------|---------------|
-| `groq/compound` | Groq | Primary LLM — fast inference on Groq's LPU hardware | 131,072 tokens |
-| `gemini-3.6-flash` | Google Gemini | Secondary LLM — different training data for independent perspective | Large |
+| `llama3-70b-8192` | Groq | Primary LLM — fast inference on Groq's LPU hardware | 131,072 tokens |
+| `gemini-1.5-flash` | Google Gemini | Secondary LLM — different training data for independent perspective | Large |
 
 Both models receive the **same system prompt** and the **same serialized JSON flow** as user content.
 

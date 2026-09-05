@@ -3,7 +3,7 @@ import re
 # Regex patterns for validation
 PHONE_PATTERN = re.compile(r'\b\d{3}[-.]?\d{3}[-.]?\d{4}\b')
 EMAIL_PATTERN = re.compile(r'\b[A-Za-z0-9._%+-]+@[A-Za-z0-9.-]+\.[A-Z|a-z]{2,}\b')
-PROBABILITY_PATTERN = re.compile(r'\b(probability|percent|accuracy|model|xgb|xgboost|random forest|lightgbm|machine learning|prediction|predictions|predicts|auc|f1|classifier)\b', re.IGNORECASE)
+PROBABILITY_PATTERN = re.compile(r'\b(probability|accuracy|model|xgb|xgboost|random forest|lightgbm|machine learning|auc|f1|classifier)\b', re.IGNORECASE)
 
 def clean_hallucinations(narrative: str) -> tuple[str, list[str]]:
     """

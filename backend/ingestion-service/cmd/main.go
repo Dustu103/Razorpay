@@ -43,7 +43,7 @@ func main() {
 
 	app.Use(logger.New(), recover.New())
 	app.Use(cors.New(cors.Config{
-		AllowOrigins: "http://localhost:3000",
+		AllowOrigins: "http://localhost:3000, http://localhost:3010",
 		AllowHeaders: "Origin, Content-Type",
 		AllowMethods: "GET, POST, OPTIONS",
 	}))
@@ -54,7 +54,8 @@ func main() {
 	})
 
 	webhookHandler := handlers.NewWebhookHandler(database, q)
-	routes.Register(app, webhookHandler)
+	checkoutHandler := handlers.NewCheckoutEventHandler(q.Client())
+	routes.Register(app, webhookHandler, checkoutHandler)
 
 	port := os.Getenv("INGESTION_PORT")
 	if port == "" {

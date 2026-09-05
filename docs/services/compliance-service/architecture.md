@@ -11,7 +11,7 @@ Merchants (or internal audit teams) provide a JSON representation of the screens
 
 The service processes this JSON via a **2-Layer Pipeline**:
 1. **Layer 1 (Deterministic Engine):** Fast regex and state checks (e.g. `state: pre-checked` or "Hurry!"). Zero LLM cost, perfectly accurate for explicit violations.
-2. **Layer 2 (LLM Semantic Engine):** For ambiguous violations (e.g. forced bundling, interface pressure). The LLM (`groq/compound`) analyzes the JSON AST.
+2. **Layer 2 (LLM Semantic Engine):** For ambiguous violations (e.g. forced bundling, interface pressure). The LLM (`llama3-70b-8192`) analyzes the JSON AST.
 3. **Aggregation:** Both layers are merged and deduplicated before returning.
 
 ## 2. API Design

@@ -107,6 +107,21 @@ services:
       inference-service:
         condition: service_healthy
 
+  dropoff-service:
+    build:
+      context: ./backend/dropoff-service
+      dockerfile: Dockerfile
+    container_name: razorpay-dropoff
+    restart: unless-stopped
+    ports:
+      - "3002:3002"
+    environment:
+      REDIS_URL: redis://redis:6379
+      PORT: "3002"
+    depends_on:
+      redis:
+        condition: service_healthy
+
   b2b-recovery-service:
     build:
       context: ./backend/b2b-recovery-service
@@ -184,6 +199,9 @@ services:
       GROQ_API_KEY: ${GROQ_API_KEY:-}
       GEMINI_API_KEY: ${GEMINI_API_KEY:-}
       INFERENCE_SERVICE_URL: http://inference-service:8000
+    depends_on:
+      inference-service:
+        condition: service_healthy
     healthcheck:
       test: ["CMD-SHELL", "python -c \"import urllib.request; urllib.request.urlopen('http://localhost:3005/health')\" || exit 1"]
       interval: 10s
@@ -219,7 +237,7 @@ services:
     container_name: razorpay-frontend
     restart: unless-stopped
     ports:
-      - "3000:3000"
+      - "3010:3000"
     environment:
       AUDIT_SERVICE_URL: http://audit-service:3003
       NODE_ENV: production

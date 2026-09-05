@@ -40,6 +40,8 @@ func New() (*Queue, error) {
 
 func (q *Queue) Close() error { return q.client.Close() }
 
+func (q *Queue) Client() *redis.Client { return q.client }
+
 // Enqueue pushes a ClassificationJob to the Redis list (RPUSH = tail of queue).
 func (q *Queue) Enqueue(ctx context.Context, job models.ClassificationJob) error {
 	data, err := json.Marshal(job)

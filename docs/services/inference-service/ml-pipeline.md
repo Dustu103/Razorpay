@@ -59,13 +59,40 @@ This document outlines the pipeline, features, and algorithms for all ML models 
 * **Storage**: `/app/models/ml/feature_d.joblib`
 * **Performance Benchmark**: ~97.6% Accuracy on unseen data, ~10ms Latency
 
+## 5. Feature E: Causal Net-EV Drop-Off Recovery Engine
+*(Decoupled causal intervention scoring for checkout abandonments)*
+
+* **Architecture**: Dual Causal Inference (S-Learner + Action-Conditioned RTO Model)
+* **Algorithms**:
+  * **S-Learner**: LightGBM Classifier with explicit base-feature $\times$ action interaction terms estimating $P(Y=1 \mid X, A)$ across $A \in \{\text{none}, \text{whatsapp}, \text{sms}, \text{email}\}$.
+  * **RTO Risk Model**: LightGBM Classifier conditioned on action estimating $P(\text{RTO}=1 \mid X, A, Y=1)$ on converted checkouts.
+  * **Propensity Estimator**: Multinomial Logistic Regression modeling logging policy $\hat{\pi}_0(A \mid X)$.
+* **Input Features**:
+  * Continuous: `cart_value`, `duration_sec`, `attempt_count`, `events_count`, `sequence_entropy`, `mean_inter_event_time`, `is_returning_customer`
+  * Categorical: `payment_method` (OneHot), `device` (OneHot), `diagnosis` (OneHot)
+* **Exact Economic Engine**:
+  $$\Delta\Pi_a = P_a[(1 - r_a)(CM - D_a) - r_a K_{RTO}] - P_0[(1 - r_0)CM - r_0 K_{RTO}] - K_a$$
+* **Orchestration Rule**: Recommends $\operatorname{argmax}_a(\Delta\Pi_a)$ if $\Delta\Pi_a > 0$; strictly commands `NO_ACTION` (suppression) otherwise to avoid cannibalizing organic checkout completions.
+* **Storage**:
+  * `/app/models/ml/causal_s_model.pkl`
+  * `/app/models/ml/causal_rto_model.pkl`
+  * `/app/models/ml/causal_preprocessor_encoder.pkl`
+  * `/app/models/ml/causal_propensity_clf.pkl`
+* **Performance Benchmark**: 0.711 ROC-AUC, 0.513 F1 (calibrated), 71.6% RTO Accuracy, ~88% of maximum Oracle profit captured.
+
 ---
 
 ## Offline Training Methodology
 Models are strictly trained **offline** inside the `data/scripts/` directory to prevent out-of-memory errors on the production API.
 
-**Example Pipeline:**
-1. Generate synthetic failure data (`data/scripts/revenue_recovery/train_feature_b.py`)
-2. Fit `RandomForestClassifier` using `scikit-learn`
-3. Export using `joblib.dump()` to `models/ml/`
-4. The Inference Service loads all `.joblib` files into a global Python memory space on startup.
+**Directory Structure:**
+* `data/scripts/chargeback/` → Dispute pre-emption models
+* `data/scripts/classification/` → Root-cause classification models
+* `data/scripts/revenue_recovery/` → Smart retries, dunning, false decline models
+* `data/scripts/dropoffs/` → Causal drop-off simulator, S-Learner, and RTO models
+
+**Example Training Pipeline:**
+1. Generate causal data: `python data/scripts/dropoffs/generate_synthetic_dropoffs.py --samples 50000`
+2. Train causal models: `python data/scripts/dropoffs/train_causal_recovery_pipeline.py`
+3. Export using `joblib.dump()` to `models/ml/` (which mounts to `/app/models/ml` in the container)
+4. Verify economic invariants: `python tests/test_economic_invariants.py`

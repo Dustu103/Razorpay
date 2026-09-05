@@ -34,7 +34,7 @@ func main() {
 
 	app.Use(logger.New(), recover.New())
 	app.Use(cors.New(cors.Config{
-		AllowOrigins: "http://localhost:3000",
+		AllowOrigins: "http://localhost:3000, http://localhost:3010",
 		AllowHeaders: "Origin, Content-Type",
 		AllowMethods: "GET, OPTIONS",
 	}))

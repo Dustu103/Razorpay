@@ -18,8 +18,8 @@ import (
 
 const (
 	groqAPIURL     = "https://api.groq.com/openai/v1/chat/completions"
-	groqModel      = "openai/gpt-oss-120b"
-	geminiModel    = "gemini-flash-latest"
+	groqModel      = "llama3-70b-8192"
+	geminiModel    = "gemini-1.5-flash"
 	requestTimeout = 10 * time.Second
 )
 

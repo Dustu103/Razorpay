@@ -8,7 +8,7 @@
 
 ## Context
 
-The compliance scanner's Layer 2 runs two LLMs concurrently — `groq/compound` and `gemini-3.6-flash`. When their outputs are merged, there are two possible strategies for handling disagreements:
+The compliance scanner's Layer 2 runs two LLMs concurrently — `llama3-70b-8192` and `gemini-1.5-flash`. When their outputs are merged, there are two possible strategies for handling disagreements:
 
 **Intersection (AND):** Only flag a violation if *both* models found it.  
 - Pros: Fewer false positives. Every result has two-model confidence.  
@@ -45,7 +45,7 @@ This asymmetry strongly favours maximizing recall — which Union achieves.
 
 ### 2. Two Independent Training Data Sources
 
-`groq/compound` and `gemini-3.6-flash` were trained on different data by different organizations. When one model detects a pattern the other misses, that is valuable signal — it reflects genuine model diversity, not noise. Discarding it via Intersection wastes this diversity.
+`llama3-70b-8192` and `gemini-1.5-flash` were trained on different data by different organizations. When one model detects a pattern the other misses, that is valuable signal — it reflects genuine model diversity, not noise. Discarding it via Intersection wastes this diversity.
 
 ### 3. Hallucination Mitigation
 

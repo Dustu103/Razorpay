@@ -133,3 +133,56 @@ Runs the multi-model ensemble on transaction metadata and evidence flags to calc
   ]
 }
 ```
+
+---
+
+## Predict Checkout Drop-Off Intervention (Causal Engine)
+Runs the dual Causal S-Learner and RTO model to determine whether intervening on an abandoned checkout yields a positive Net Expected Value ($\Delta\Pi$), and selects the optimal channel.
+
+**Endpoint**: `POST /predict/intervention`
+
+**Request Body**:
+```json
+{
+  "session_id": "sess_tech_001",
+  "diagnosis": "upi_app_switch_abort",
+  "cart_value": 3500.0,
+  "merchant_margin": 0.35,
+  "duration_sec": 45,
+  "attempt_count": 2,
+  "events_count": 5,
+  "event_sequence": "cart,pay_select,upi_click,abort",
+  "payment_method": "upi",
+  "device": "mobile_android",
+  "is_returning_customer": 1,
+  "rto_cost_estimate": 250.0,
+  "incentive_amount": 0.0
+}
+```
+
+**Response (200 OK)**:
+```json
+{
+  "action": "whatsapp",
+  "risk_score": 0.124,
+  "rto_rate_organic": 0.121,
+  "recovery_prob": 0.582,
+  "organic_recovery_prob": 0.284,
+  "incremental_lift": 0.298,
+  "expected_profit": 142.50,
+  "recovery_message": "Arre yaar! 😅 Aapka payment thoda ruk gaya. UPI app switch ho gaya tha. Abhi complete karein: https://rzp.io/r/sess_tech",
+  "reasoning": "RECOMMEND WHATSAPP (ΔΠ=+₹142.50, r_a=0.124). P0=0.284 r0=0.121 | ΔΠ(WA)=₹142.50 ΔΠ(SMS)=₹98.20 ΔΠ(Email)=₹45.10"
+}
+```
+
+### Response Fields
+* `action`: Recommended intervention channel (`whatsapp`, `sms`, `email`, or `NO_ACTION` if all $\Delta\Pi \le 0$).
+* `risk_score`: Action-conditioned return-to-origin probability ($r_a$).
+* `rto_rate_organic`: Baseline return-to-origin probability without intervention ($r_0$).
+* `recovery_prob`: Conditional recovery probability under chosen action ($P_a$).
+* `organic_recovery_prob`: Baseline recovery probability ($P_0$).
+* `incremental_lift`: Net causal treatment lift $\tau_a = \max(0, P_a - P_0)$.
+* `expected_profit`: Exact net economic value in INR ($\Delta\Pi_a$).
+* `recovery_message`: Localized Hinglish message generated for the customer.
+* `reasoning`: Mathematical trace showing P0, r0, and $\Delta\Pi$ across all evaluated channels.
+

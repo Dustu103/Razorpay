@@ -13,10 +13,10 @@ To eliminate Single Point of Failure (SPOF) risks, latency spikes, and provider-
 
 We have implemented integrations with:
 
-1.  **Groq (`openai/gpt-oss-120b`)**
+1.  **Groq (`llama3-70b-8192`)**
     *   **Advantage:** Ultra-low latency Llama-based inference.
     *   **Risk:** Highly aggressive rate limits on free developer tiers.
-2.  **Google Gemini (`gemini-flash-latest`)**
+2.  **Google Gemini (`gemini-1.5-flash`)**
     *   **Advantage:** State-of-the-art context window and highly structured JSON output capabilities.
     *   **Risk:** Occasional `context deadline exceeded` in testing environments if invalid API keys are intercepted by networking layers.
 

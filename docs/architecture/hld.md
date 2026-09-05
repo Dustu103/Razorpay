@@ -14,6 +14,7 @@ This enterprise monorepo solves two major operational bottlenecks for Razorpay:
 1. **Pillar A (Chargebacks):** Manual dispute resolution is costly and slow. The **Chargeback Pre-emption Service** uses Machine Learning to predict dispute win probabilities and autonomous LLMs to draft compelling rebuttals, deflecting unwinnable disputes via refunds.
 2. **Pillar B (Diagnostics):** When payments fail, the system cannot programmatically determine the root cause. The **Root-Cause Classifier** uses a Mixture-of-Experts (ML + LLM) to instantly classify failures (e.g., fraud block vs. soft decline).
 3. **Pillar C (BNPL Recovery):** Declines and defaults represent massive lost revenue. The **Dual-Engine BNPL System** utilizes a 50ms Edge Engine to save live checkouts with BNPL offers, and an asynchronous Recovery Engine that predicts optimal Dunning channels based on "Phantom Debt" while strictly adhering to DPDP and RBI Anti-Harassment laws.
+4. **Pillar D (B2B Recovery):** Unpaid B2B invoices tie up working capital. The **B2B Tax Lever Agent** scans for overdue invoices and deterministically routes them to Indian Tax statutes (e.g., Sec 43B(h)), using a Groq LLM to draft formal, compliant legal notices to expedite recovery.
 
 To achieve maximum scalability, all heavy Machine Learning (XGBoost, LightGBM, Scikit-learn) is abstracted away from the lightweight Go/Python backend services into a centralized **Inference Gateway**.
 
@@ -47,6 +48,10 @@ graph TD
     BW -->|POST /predict/bnpl-recovery| IG
     BW -->|GET /api/v1/compliance| CPL[Compliance Service :3004]
     
+    %% B2B Recovery (Pillar D)
+    B2B[B2B Cron Worker :3006] -->|Daily Scan| PG
+    B2B -->|POST /agent/b2b-invoice| IG
+    
     %% Routing to Inference Gateway
     CS -->|POST /predict/payment| IG
     CBS -->|POST /predict/chargeback| IG
@@ -75,6 +80,7 @@ graph TD
 | **BNPL Edge Service** | 8003 | Go (Fiber) | Ultra-low latency edge proxy that executes checkout fallbacks with a strict 50ms SLA. |
 | **Chargeback Service** | 3005 | FastAPI (Python 3.11) | Executes deterministic logic (VAMP protection), routes to Inference Gateway, and drafts LLM rebuttals. |
 | **Classification Service**| — | Go (Workers) | Pops webhooks off Redis for Root-Cause classification and BNPL Asynchronous Recovery orchestration. |
+| **B2B Recovery Service**| 3006 | Go (Cron/Worker) | Scans for 30+ day overdue invoices, executes B2B Tax Lever Agent logic, and creates approval records. |
 | **Compliance Service** | 3004 | FastAPI (Python 3.11) | Enforces strict RBI regulations (IST timeframes) and DPDP consent mapping via Redis rate limiting. |
 | **Ingestion Service** | 3001 | Go (Fiber) | Webhook receiver; handles payload validation, DB dedup, and Redis enqueuing. |
 | **Audit Service** | 3003 | Go (Fiber) | Read-only API for the Frontend Inspector to query classifications and chargebacks. |

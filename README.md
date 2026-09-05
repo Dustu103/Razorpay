@@ -57,10 +57,13 @@ docker-compose up -d --build
 | :--- | :--- | :--- | :--- |
 | `classification-service` | Go | — | Redis worker: diagnoses payment failures |
 | `audit-service` | Go | 3003 | REST API: serves classification results to the UI |
-| `bnpl-edge-service` | Go | 3004 | 50ms Edge Proxy: BNPL checkout fallback |
-| `chargeback-service` | Go | 3005 | REST API: dispute triage and rebuttal generation |
-| `inference-service` | Python | 8000 | ML + LLM: XGBoost chargeback scoring + B2B Agent |
+| `bnpl-edge-service` | Go | 8003 | 50ms Edge Proxy: BNPL checkout fallback |
+| `chargeback-service` | Python | 3005 | REST API: dispute triage and rebuttal generation |
+| `inference-service` | Python | 8000 | ML + LLM: centralized model serving & B2B Agent |
 | `b2b-recovery-service` | Go | 3006 | Cron Daemon: B2B tax lever recovery pipeline |
-| `frontend` | Next.js | 3000 | Dashboard UI for all 4 pillars |
+| `compliance-service` | Python | 3004 | REST API: enforces DPDP and RBI guidelines |
+| `dropoff-service` | Go | 3002 | REST API & Worker: diagnostics for checkout drop-offs |
+| `ingestion-service` | Go | 3001 | REST API: webhook receiver and queue manager |
+| `frontend` | Next.js | 3010 | Dashboard UI for all 4 pillars |
 | `postgres` | PostgreSQL | 5432 | Shared database |
-| `redis` | Redis | 6379 | Message queue for classification worker |
+| `redis` | Redis | 6379 | Message queue and state store |
