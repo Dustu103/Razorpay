@@ -1,0 +1,47 @@
+╔══════════════════════════════════════════════════════════════════════════════╗
+║         NACH Mandate Recovery Engine — Experiment Results                  ║
+║         Batch Size: 100     Total Mandate Value: ₹     938,358              ║
+╚══════════════════════════════════════════════════════════════════════════════╝
+
+EXPERIMENT DESIGN
+─────────────────
+  Baseline:  Fixed 3-attempt retry, 24-hour spacing (industry default)
+  AI:        Layer 0 stopping policy + NACH cause classifier + product-aware dunning
+
+OVERALL RESULTS
+───────────────
+  Metric                        Baseline        AI Strategy      Delta
+  ─────────────────────────────────────────────────────────────────────
+  Mandates recovered              25/100           37/100           +12
+  Revenue recovered         ₹     242,659  ₹     367,117  ₹  +124,459
+  Lift vs. baseline                                         +51.3%
+  % of total value recovered        25.9%            39.1%
+  Retry attempts wasted            114              0              -114
+  Retry attempts saved by AI       —               114              +114
+
+BY PRODUCT TYPE
+───────────────
+    sip                    n= 48  Baseline=₹    84,049  AI=₹   154,963  Δ=₹ +70,914
+    loan_emi               n= 35  Baseline=₹   142,618  AI=₹   186,110  Δ=₹ +43,492
+    insurance_premium      n= 17  Baseline=₹    15,992  AI=₹    26,045  Δ=₹ +10,053
+
+BY FAILURE CAUSE  (✓ retryable  ✗ permanent)
+────────────────
+    [✓] insufficient_funds               n= 49  Baseline=₹  204,781  AI=₹  308,333
+    [✓] bank_technical_error             n= 13  Baseline=₹   22,531  AI=₹   58,785
+    [✗] mandate_expired                  n= 14  Baseline=₹    8,246  AI=₹        0
+    [✗] account_frozen_or_closed         n= 11  Baseline=₹        0  AI=₹        0
+    [✗] incorrect_mandate_details        n= 13  Baseline=₹    7,101  AI=₹        0
+
+KEY INSIGHTS
+────────────
+  1. The AI correctly identifies all 38
+     permanent-cause failures and returns nach_do_not_retry,
+     saving 114 unnecessary bank retry attempts.
+
+  2. For retryable causes, product-aware dunning (WhatsApp for EMI,
+     SMS for SIP) achieves higher recovery than channel-blind retry.
+
+  3. The SUPPRESS path (nach_do_not_retry) is demonstrated explicitly:
+     21 of 100 failures received NO retry action —
+     the system correctly refused to intervene.

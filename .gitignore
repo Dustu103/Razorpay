@@ -46,6 +46,11 @@ __pycache__/
 *.so
 .pytest_cache/
 
-# Private presentation notes (never push to git)
-PRESENTATION.md
+# Linux binaries
+/backend/nach-recovery-service/nach-recovery-service
+/backend/dropoff-service/dropoff-service
+/backend/b2b-recovery-service/b2b-recovery-service
+
+
+
 

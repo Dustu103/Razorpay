@@ -84,7 +84,15 @@ type llmOutput struct {
 
 const systemPrompt = `You are a payment-failure root-cause classifier for a Razorpay mandate system.
 You will receive a JSON payload describing a failed payment transaction.
-Your task is to classify the failure into exactly ONE of these five causes:
+
+If payment_rail is "nach", classify the failure into exactly ONE of these NACH-specific causes:
+  - nach_insufficient_funds      (customer account had insufficient funds at debit time)
+  - nach_mandate_expired         (the registered mandate has expired or been cancelled)
+  - nach_account_frozen_or_closed (customer account is frozen or closed — permanent)
+  - nach_bank_technical_error    (bank-side processing error, transient)
+  - nach_incorrect_mandate_details (mandate registration data mismatch — requires customer update)
+
+If payment_rail is NOT "nach" (UPI, card, or unknown), classify into exactly ONE of these:
   - notification_compliance_block
   - soft_decline
   - hard_decline
@@ -97,8 +105,14 @@ Then recommend exactly ONE action from:
   - retry_now
   - do_not_retry
   - reverify_and_reverse
+  - nach_do_not_retry            (NACH only: unretryable, requires customer mandate update)
 
-Rules:
+Rules for NACH:
+- nach_insufficient_funds: transient — recommend retry_scheduled if consecutive_failures < 3 else nach_do_not_retry.
+- nach_bank_technical_error: transient — recommend retry_now.
+- nach_mandate_expired, nach_incorrect_mandate_details, nach_account_frozen_or_closed: permanent — recommend nach_do_not_retry.
+
+Rules for non-NACH:
 - notification_compliance_block is ONLY for RBI pre-debit notification violations (24-hour window). Use silent_reschedule.
 - soft_decline: transient failures (funds, temp issuer issues). Use retry_scheduled or retry_now.
 - hard_decline: permanent card issues (expired, blocked, invalid). Use do_not_retry.
@@ -107,8 +121,8 @@ Rules:
 
 Respond ONLY with valid JSON matching this exact schema (no markdown, no explanation outside JSON):
 {
-  "cause": "<one of the five causes>",
-  "recommended_action": "<one of the five actions>",
+  "cause": "<one valid cause for the payment_rail>",
+  "recommended_action": "<one of the actions>",
   "confidence": <float between 0.0 and 1.0>,
   "reasoning": "<1-3 sentence human-readable explanation for the audit trail>"
 }`
@@ -126,18 +140,35 @@ func buildUserPrompt(txn *models.Transaction) string {
 	if txn.CustomerBank != nil {
 		cb = fmt.Sprintf("%q", *txn.CustomerBank)
 	}
+	daysDue := "null"
+	if txn.DaysSinceDueDate != nil {
+		daysDue = fmt.Sprintf("%d", *txn.DaysSinceDueDate)
+	}
+	rail := txn.PaymentRail
+	if rail == "" {
+		rail = "unknown"
+	}
+	product := txn.ProductType
+	if product == "" {
+		product = "unknown"
+	}
 
 	return fmt.Sprintf(`{
+  "payment_rail": %q,
+  "product_type": %q,
   "status_code": %q,
   "bank_response_code": %s,
   "npci_response_code": %s,
   "amount_paise": %.0f,
   "customer_bank": %s,
   "retry_count_so_far": %d,
+  "consecutive_failure_count": %d,
+  "days_since_due_date": %s,
   "has_mandate_notification": %v,
   "has_debit_schedule": %v
 }`,
-		txn.StatusCode, br, nr, txn.Amount, cb, txn.RetryCountSoFar,
+		rail, product, txn.StatusCode, br, nr, txn.Amount, cb,
+		txn.RetryCountSoFar, txn.ConsecutiveFailureCount, daysDue,
 		txn.MandateNotificationSentAt != nil, txn.DebitScheduledAt != nil,
 	)
 }

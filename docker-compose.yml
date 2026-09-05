@@ -145,6 +145,29 @@ services:
       timeout: 5s
       retries: 5
 
+  nach-recovery-service:
+    build:
+      context: ./backend/nach-recovery-service
+      dockerfile: Dockerfile
+    container_name: razorpay-nach-recovery
+    restart: unless-stopped
+    ports:
+      - "3007:3007"
+    environment:
+      DATABASE_URL: postgres://razorpay:razorpay@postgres:5432/razorpay_classifier?sslmode=disable
+      REDIS_URL: redis://redis:6379
+      PORT: "3007"
+    depends_on:
+      postgres:
+        condition: service_healthy
+      redis:
+        condition: service_healthy
+    healthcheck:
+      test: ["CMD-SHELL", "wget -qO- http://localhost:3007/health || exit 1"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+
   audit-service:
     build:
       context: ./backend/audit-service

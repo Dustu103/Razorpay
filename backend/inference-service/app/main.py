@@ -47,6 +47,11 @@ class Transaction(BaseModel):
     cardholder_auth_method: Optional[str] = None
     mandate_notification_sent_at: Optional[str] = None
     debit_scheduled_at: Optional[str] = None
+    # NACH rail fields — zero-valued for UPI/card transactions.
+    payment_rail: Optional[str] = ""                # "nach" | "upi" | "card" | ""
+    product_type: Optional[str] = ""                # "sip" | "loan_emi" | "insurance_premium" | ""
+    consecutive_failure_count: Optional[int] = 0    # Consecutive mandate debit failures
+    days_since_due_date: Optional[int] = None       # EMI: days elapsed since due date
 
 @app.on_event("startup")
 def load_models():
@@ -172,7 +177,7 @@ def predict_retry(req: RetryRoutingInput):
 def predict_dunning(req: DunningInput):
     if dunning_model is None:
         raise HTTPException(status_code=503, detail="Dunning model not loaded")
-    
+
     try:
         return dunning_model.predict(req)
     except Exception as e:

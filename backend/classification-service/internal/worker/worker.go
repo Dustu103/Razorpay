@@ -16,6 +16,7 @@ import (
 	"razorpay-classification-service/internal/layer2"
 	"razorpay-classification-service/internal/layer3"
 	"razorpay-classification-service/internal/models"
+	"razorpay-classification-service/internal/nach"
 
 	"github.com/redis/go-redis/v9"
 )
@@ -92,6 +93,19 @@ func (w *Worker) processJob(ctx context.Context, job models.ClassificationJob) e
 		return fmt.Errorf("get transaction: %w", err)
 	}
 
+	// ── Layer 0: NACH Stopping Policy ──────────────────────────────────────
+	// For NACH rail transactions, check product-specific hard limits BEFORE
+	// any ML/LLM work. If a stopping condition is met, short-circuit the
+	// entire pipeline immediately.
+	if stopResult := nach.Check(txn); stopResult.ShouldStop {
+		log.Printf("[classification-worker] NACH stopping policy triggered txn=%s action=%s",
+			txn.ID, stopResult.Result.RecommendedAction)
+		if err := w.db.SaveClassification(ctx, stopResult.Result); err != nil {
+			return fmt.Errorf("save nach stopping result: %w", err)
+		}
+		return nil
+	}
+
 	// 2. Layer 1 — deterministic, sub-millisecond
 	result := layer1.Classify(txn)
 
@@ -166,7 +180,7 @@ func (w *Worker) processJob(ctx context.Context, job models.ClassificationJob) e
 		}
 	}
 
-	// ── Post-Ensemble Orchestration (Features B, C, D) ─────────────────────
+	// ── Post-Ensemble Orchestration (Features B, C, D + NACH escalations) ──
 	// 1. Feature D: False Decline Recovery
 	if result.Cause == models.CauseFraudFilterBlock {
 		log.Printf("[classification-worker] txn=%s is fraud_filter_block. Evaluating False Decline...", txn.ID)
@@ -183,8 +197,12 @@ func (w *Worker) processJob(ctx context.Context, job models.ClassificationJob) e
 	}
 
 	// 2. Features B & C: Intelligent Retry & Dunning
-	if result.Cause == models.CauseSoftDecline {
-		log.Printf("[classification-worker] txn=%s is soft_decline. Evaluating Retry Routing...", txn.ID)
+	// Applies to generic soft_decline AND NACH soft causes (insufficient_funds, bank_technical_error).
+	isNACHSoftCause := result.Cause == models.CauseNACHInsufficientFunds ||
+		result.Cause == models.CauseNACHBankTechnicalError
+
+	if result.Cause == models.CauseSoftDecline || isNACHSoftCause {
+		log.Printf("[classification-worker] txn=%s is soft cause (%s). Evaluating Retry Routing...", txn.ID, result.Cause)
 		prob, action, err := layer2.EvaluateRetry(txn)
 		if err == nil {
 			result.Reasoning += fmt.Sprintf(" | [Feature B] Retry Success Probability: %.2f", prob)
@@ -192,17 +210,40 @@ func (w *Worker) processJob(ctx context.Context, job models.ClassificationJob) e
 				result.RecommendedAction = models.ActionRetryScheduled
 			} else {
 				log.Printf("[classification-worker] txn=%s Retry unlikely (%.2f). Evaluating Dunning...", txn.ID, prob)
-				// Fallback to Dunning (Feature C)
 				dunProb, channel, dErr := layer2.EvaluateDunning(txn)
 				if dErr == nil {
-					result.Reasoning += fmt.Sprintf(" | [Feature C] Dunning Channel: %s (Prob: %.2f)", channel, dunProb)
-					// We'll set the recommended action to trigger a specific dunning channel
+					consequence := consequenceSeverity(txn)
+					result.Reasoning += fmt.Sprintf(
+						" | [Feature C] Dunning Channel: %s (Prob: %.2f) | Consequence: %s",
+						channel, dunProb, consequence,
+					)
+					// For NACH EMI with credit_score_risk, always escalate to WhatsApp
+					// regardless of the dunning model's channel recommendation —
+					// the urgency of credit bureau reporting overrides channel optimisation.
+					if txn.PaymentRail == models.PaymentRailNACH &&
+						txn.ProductType == models.ProductTypeLoanEMI &&
+						consequence == models.ConsequenceCreditScoreRisk {
+						channel = "whatsapp"
+						result.Reasoning += " | [NACH Override] EMI credit_score_risk: channel forced to whatsapp."
+					}
 					result.RecommendedAction = fmt.Sprintf("trigger_dunning_%s", channel)
 				}
 			}
 		} else {
 			log.Printf("[classification-worker] EvaluateRetry failed: %v", err)
 		}
+	}
+
+	// 3. NACH hard causes: mandate_expired and incorrect_mandate_details are
+	//    unretryable — they require customer action, not automated retry.
+	if result.Cause == models.CauseNACHMandateExpired ||
+		result.Cause == models.CauseNACHIncorrectMandateDetails ||
+		result.Cause == models.CauseNACHAccountFrozenOrClosed {
+		result.RecommendedAction = models.ActionNACHDoNotRetry
+		result.Reasoning += fmt.Sprintf(
+			" | [NACH Hard Stop] Cause %q is not retryable — requires customer mandate update.",
+			result.Cause,
+		)
 	}
 
 	// 5. Persist classification
@@ -225,5 +266,24 @@ func buildFallbackResult(txn *models.Transaction) *models.ClassificationResult {
 		Reasoning:         "Classification failed due to an internal error. Defaulted to soft_decline for safe retry. Manual review required.",
 		RecommendedAction: models.ActionRetryScheduled,
 		ModelVersion:      &mv,
+	}
+}
+
+// consequenceSeverity is a deterministic lookup that maps (payment_rail, product_type)
+// to a consequence severity string for use in the dunning router and audit trail.
+// This requires no AI — the severity is a property of the product, not the failure.
+func consequenceSeverity(txn *models.Transaction) string {
+	if txn.PaymentRail != models.PaymentRailNACH {
+		return "" // Only NACH transactions carry product-level consequence
+	}
+	switch txn.ProductType {
+	case models.ProductTypeLoanEMI:
+		return models.ConsequenceCreditScoreRisk
+	case models.ProductTypeSIP:
+		return models.ConsequenceInvestmentLapseRisk
+	case models.ProductTypeInsurancePremium:
+		return models.ConsequencePolicyLapseRisk
+	default:
+		return ""
 	}
 }

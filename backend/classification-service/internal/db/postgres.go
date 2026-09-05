@@ -38,7 +38,11 @@ func (d *DB) GetTransaction(ctx context.Context, id string) (*models.Transaction
 		SELECT id, gateway_transaction_id, status_code,
 		       npci_response_code, bank_response_code,
 		       amount, customer_bank, retry_count_so_far,
-		       mandate_notification_sent_at, debit_scheduled_at
+		       mandate_notification_sent_at, debit_scheduled_at,
+		       COALESCE(payment_rail, ''),
+		       COALESCE(product_type, ''),
+		       COALESCE(consecutive_failure_count, 0),
+		       days_since_due_date
 		FROM transactions WHERE id = $1`
 
 	var txn models.Transaction
@@ -53,6 +57,10 @@ func (d *DB) GetTransaction(ctx context.Context, id string) (*models.Transaction
 		&txn.RetryCountSoFar,
 		&txn.MandateNotificationSentAt,
 		&txn.DebitScheduledAt,
+		&txn.PaymentRail,
+		&txn.ProductType,
+		&txn.ConsecutiveFailureCount,
+		&txn.DaysSinceDueDate,
 	)
 	if err != nil {
 		if err == pgx.ErrNoRows {

@@ -186,3 +186,66 @@ Runs the dual Causal S-Learner and RTO model to determine whether intervening on
 * `recovery_message`: Localized Hinglish message generated for the customer.
 * `reasoning`: Mathematical trace showing P0, r0, and $\Delta\Pi$ across all evaluated channels.
 
+---
+
+## Predict Intelligent Retry Routing (Feature B)
+Calculates optimal retry probability and determines if an automated re-attempt is viable based on failure cause, time elapsed, and bank operating cycles.
+
+**Endpoint**: `POST /predict/retry`
+
+**Request Body**:
+```json
+{
+  "hour_of_day": 14,
+  "day_of_month": 5,
+  "failure_cause_encoded": 0,
+  "payment_method_encoded": 2,
+  "retry_count": 1,
+  "time_since_failure_mins": 45
+}
+```
+
+**Response (200 OK)**:
+```json
+{
+  "retry_success_probability": 0.72,
+  "recommended_action": "retry_scheduled"
+}
+```
+
+---
+
+## Predict Dunning Optimization & Urgency Routing (Feature C)
+Selects the optimal re-engagement channel (WhatsApp / SMS / Email) conditioned on customer tenure, time since failure, and NACH consequence severity tiers.
+
+**Endpoint**: `POST /predict/dunning`
+
+**Request Body**:
+```json
+{
+  "channel_encoded": 0,
+  "time_since_failure_mins": 30,
+  "customer_tenure_months": 18,
+  "prior_payment_success_rate": 0.88,
+  "product_type": "loan_emi",
+  "consequence_severity": "credit_score_risk"
+}
+```
+
+**Response (200 OK)**:
+```json
+{
+  "payment_probability": 0.63,
+  "recommended_channel": "whatsapp",
+  "consequence_severity": "credit_score_risk",
+  "urgency_tier": "critical"
+}
+```
+
+### Response Fields
+* `payment_probability`: Calibrated probability that the customer settles via the recommended channel.
+* `recommended_channel`: Re-engagement channel selected (`whatsapp`, `sms`, `email`, or `push`). Overridden to `whatsapp` on `critical` urgency, or `sms` on `elevated` urgency.
+* `consequence_severity`: Preserved consequence severity tag for audit trails (`credit_score_risk`, `investment_lapse_risk`, `policy_lapse_risk`, or empty string).
+* `urgency_tier`: Deterministic governor tier (`standard`, `elevated`, or `critical`).
+
+

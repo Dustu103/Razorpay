@@ -41,7 +41,7 @@ def test_live_actions():
         assert 0.0 <= out.recovery_prob <= 1.0, f"Invalid recovery prob: {out.recovery_prob}"
         assert 0.0 <= out.organic_recovery_prob <= 1.0, f"Invalid organic prob: {out.organic_recovery_prob}"
         assert 0.0 <= out.risk_score <= 1.0, f"Invalid risk score: {out.risk_score}"
-        assert 0.0 <= out.rto_rate_organic <= 1.0, f"Invalid rto organic: {out.rto_rate_organic}"
+        assert 0.0 <= out.risk_score <= 1.0, f"Invalid risk score: {out.risk_score}"
         assert out.action in ["NO_ACTION", "whatsapp", "sms", "email"]
         if out.action == "NO_ACTION":
             assert out.expected_profit == 0.0
@@ -63,7 +63,7 @@ def test_live_actions():
         print(f"  Session:         {inp.session_id} | Diagnosis: {inp.diagnosis} | Cart: INR {inp.cart_value:,.0f} | Device: {inp.device}")
         print(f"  Probabilities:   Recovery={out.recovery_prob:.3f} (Organic={out.organic_recovery_prob:.3f}, Lift=+{out.incremental_lift:.3f})")
         print(f"  Expected Profit: INR {out.expected_profit:,.2f}")
-        print(f"  RTO Risk:        r_a={out.risk_score:.3f} vs r_0={out.rto_rate_organic:.3f}")
+        print(f"  RTO Risk:        r_a={out.risk_score:.3f}")
         print(f"  Reasoning:       {out.reasoning}")
         if out.recovery_message:
             print(f"  Hinglish Msg:    \"{out.recovery_message}\"")

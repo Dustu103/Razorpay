@@ -34,6 +34,13 @@ docs/
 │   │   ├── decisions/
 │   │   └── runbooks/
 │   │
+│   ├── nach-recovery-service/                 ← Autonomous NACH Mandate Recovery Service (Port 3007)
+│   │   ├── hld.md
+│   │   ├── lld.md
+│   │   ├── testing-and-results.md
+│   │   ├── decisions/
+│   │   └── runbooks/
+│   │
 │   ├── bnpl-edge-service/                     ← BNPL Edge Payment Authorization
 │   │   ├── hld.md
 │   │   └── lld.md
@@ -43,10 +50,14 @@ docs/
 │   │   ├── runbooks.md
 │   │   └── adr-008.md
 │   │
-│   ├── classification-service/                ← Root-Cause Classifier (Pillar B)
+│   ├── classification-service/                ← Root-Cause Classifier & NACH Mandate Recovery Engine
 │   │   ├── README.md
+│   │   ├── hld.md
+│   │   ├── lld.md
+│   │   ├── flow.md
 │   │   ├── ml-pipeline.md
 │   │   ├── multi-llm-integration.md
+│   │   ├── nach-testing-and-results.md
 │   │   ├── testing-and-results.md
 │   │   ├── decisions/
 │   │   └── runbooks/
@@ -114,12 +125,17 @@ docs/
 | [ADR-008](./services/chargeback-service/decisions/ADR-008-chargeback-architecture.md) | Decisions regarding chargeback architecture |
 | [Runbooks](./services/chargeback-service/runbooks/RB-007-chargeback-ops.md) | Operations & debugging for chargeback handling |
 
-#### Root-Cause Classification (Pillar B)
+#### Root-Cause Classification & NACH Mandate Recovery (Pillar B)
 | Document | Purpose |
 |----------|---------|
+| [HLD](./services/classification-service/hld.md) | 5-Layer classification architecture, NACH Layer 0 stopping rules & post-ensemble routing |
+| [LLD](./services/classification-service/lld.md) | Go package structure, interfaces, worker orchestration & database models |
+| [Flow Diagram](./services/classification-service/flow.md) | Sequence diagram from Redis queue to Layer 0/1/Ensemble to PostgreSQL |
 | [ML Pipeline](./services/classification-service/ml-pipeline.md) | ML architecture, SMOTE, Random Forest, Ensemble logic |
-| [Multi-LLM Integration](./services/classification-service/multi-llm-integration.md) | Concurrent Groq + Gemini inference |
+| [Multi-LLM Integration](./services/classification-service/multi-llm-integration.md) | Concurrent Groq + Gemini rail-aware inference |
+| [NACH Testing & Results](./services/classification-service/nach-testing-and-results.md) | NACH Mandate Recovery batch simulation (+51.3% lift, 114 attempts saved) |
 | [Testing & Results](./services/classification-service/testing-and-results.md) | Benchmarks, stress-test results, accuracy |
+| [Runbook RB-004](./services/classification-service/runbooks/RB-004-nach-mandate-recovery-operations.md) | Operations, AMC auto-cancellation debugging & invariant monitoring |
 | [ADRs](./services/classification-service/decisions/) | Key architectural decisions (Go vs Python, Redis Queues) |
 
 #### Compliance Scanner
@@ -144,6 +160,15 @@ docs/
 |----------|---------|
 | [HLD](./services/b2b-recovery-service/hld.md) | Hybrid event-batch pattern & statutory tax penalty automation |
 | [LLD](./services/b2b-recovery-service/lld.md) | Database schemas, cron scheduler, and Groq LLM notice generator |
+
+#### NACH Mandate Recovery (Recurring Revenue Engine)
+| Document | Purpose |
+|----------|---------|
+| [HLD](./services/nach-recovery-service/hld.md) | Governor stopping engine, AMC 3-failure SIP cap, EMI 28-day credit risk |
+| [LLD](./services/nach-recovery-service/lld.md) | API schemas, port 3007 endpoints, Go package structure |
+| [Testing & Results](./services/nach-recovery-service/testing-and-results.md) | 100-batch simulation results (+51.3% lift, 114 attempts saved) |
+| [ADR-001](./services/nach-recovery-service/decisions/ADR-001-nach-recovery-service-architecture.md) | Dedicated microservice architecture |
+| [Runbook RB-001](./services/nach-recovery-service/runbooks/RB-001-nach-operations.md) | Operational monitoring, metrics verification & troubleshooting |
 
 ### Microservices
 
