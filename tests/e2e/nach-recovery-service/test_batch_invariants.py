@@ -7,7 +7,7 @@ Validates the end-to-end NACH Mandate Recovery pipeline across:
 3. Cause-Aware Retry Routing (hard stops vs retryable soft causes)
 4. Economic Recovery Performance (AI Recovery vs Naive Baseline)
 
-Matches the structure of test_live_actions.py and test_economic_invariants.py.
+Matches the structure of tests/e2e/inference-service/test_live_actions.py and tests/e2e/dropoff-service/test_economic_invariants.py.
 """
 
 import json

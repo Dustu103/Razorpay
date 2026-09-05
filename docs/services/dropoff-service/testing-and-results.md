@@ -1,6 +1,6 @@
 # Drop-Off Recovery Engine - Testing, Invariants & Benchmarks
 
-## 1. Economic Invariants Test Suite (`test_economic_invariants.py`)
+## 1. Economic Invariants Test Suite (`tests/e2e/dropoff-service/test_economic_invariants.py`)
 
 All 16 mathematical and safety invariants pass with 100% compliance:
 

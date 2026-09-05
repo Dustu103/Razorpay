@@ -95,4 +95,4 @@ Models are strictly trained **offline** inside the `data/scripts/` directory to 
 1. Generate causal data: `python data/scripts/dropoffs/generate_synthetic_dropoffs.py --samples 50000`
 2. Train causal models: `python data/scripts/dropoffs/train_causal_recovery_pipeline.py`
 3. Export using `joblib.dump()` to `models/ml/` (which mounts to `/app/models/ml` in the container)
-4. Verify economic invariants: `python tests/test_economic_invariants.py`
+4. Verify economic invariants: `python tests/e2e/dropoff-service/test_economic_invariants.py`
