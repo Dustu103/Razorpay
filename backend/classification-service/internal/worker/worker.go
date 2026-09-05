@@ -9,6 +9,7 @@ import (
 	"fmt"
 	"log"
 	"os"
+	"sync"
 	"time"
 
 	"razorpay-classification-service/internal/db"
@@ -45,11 +46,14 @@ func New(database *db.DB, redisClient *redis.Client) *Worker {
 func (w *Worker) Run(ctx context.Context) {
 	log.Printf("[classification-worker] listening on queue=%s", w.queueName)
 	sem := make(chan struct{}, 50) // Concurrency limit of 50
+	var wg sync.WaitGroup
 
 	for {
 		select {
 		case <-ctx.Done():
-			log.Println("[classification-worker] shutting down")
+			log.Println("[classification-worker] shutting down, awaiting in-flight jobs...")
+			wg.Wait()
+			log.Println("[classification-worker] shutdown complete")
 			return
 		default:
 		}
@@ -77,7 +81,9 @@ func (w *Worker) Run(ctx context.Context) {
 		}
 
 		sem <- struct{}{}
+		wg.Add(1)
 		go func(j models.ClassificationJob) {
+			defer wg.Done()
 			defer func() { <-sem }()
 			if err := w.processJob(ctx, j); err != nil {
 				log.Printf("[classification-worker] job error txn=%s: %v", j.TransactionID, err)
@@ -122,8 +128,7 @@ func (w *Worker) processJob(ctx context.Context, job models.ClassificationJob) e
 		go func() {
 			l2Ctx, cancel := context.WithTimeout(ctx, layer2CallTimeout)
 			defer cancel()
-			_ = l2Ctx
-			res, err := layer2.Classify(txn)
+			res, err := layer2.Classify(l2Ctx, txn)
 			l2Chan <- layerResult{res, err}
 		}()
 

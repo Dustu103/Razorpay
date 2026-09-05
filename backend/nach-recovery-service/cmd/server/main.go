@@ -6,6 +6,7 @@ import (
 	"os"
 	"os/signal"
 	"syscall"
+	"time"
 
 	"github.com/gofiber/fiber/v2"
 	"github.com/gofiber/fiber/v2/middleware/cors"
@@ -85,4 +86,7 @@ func main() {
 
 	<-ctx.Done()
 	log.Println("[nach-recovery-service] Shutting down gracefully...")
+	if err := app.ShutdownWithTimeout(5 * time.Second); err != nil {
+		log.Printf("[nach-recovery-service] Fiber shutdown error: %v", err)
+	}
 }

@@ -386,6 +386,16 @@ func heuristicFallback(txn *models.Transaction) *models.ClassificationResult {
 	var cause, action, reasoning string
 
 	switch {
+	case txn.PaymentRail == models.PaymentRailNACH:
+		if txn.StatusCode == "GATEWAY_ERROR" || txn.StatusCode == "TIMEOUT" {
+			cause = models.CauseNACHBankTechnicalError
+			action = models.ActionRetryNow
+			reasoning = "[Layer 3 · Heuristic Fallback] Bank technical timeout on NACH rail. Safe to retry immediately."
+		} else {
+			cause = models.CauseNACHInsufficientFunds
+			action = models.ActionRetryScheduled
+			reasoning = "[Layer 3 · Heuristic Fallback] NACH debit soft decline. Defaulting to insufficient funds retry."
+		}
 	case txn.BankResponseCode != nil && (*txn.BankResponseCode == "59" || *txn.BankResponseCode == "57"):
 		cause = models.CauseFraudFilterBlock
 		action = models.ActionDoNotRetry

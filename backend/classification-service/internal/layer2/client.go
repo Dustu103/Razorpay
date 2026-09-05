@@ -2,6 +2,7 @@ package layer2
 
 import (
 	"bytes"
+	"context"
 	"encoding/json"
 	"fmt"
 	"net/http"
@@ -32,7 +33,7 @@ var hardDeclineBank = map[string]string{
 }
 
 // Classify makes an HTTP POST request to the Python ml-service.
-func Classify(txn *models.Transaction) (*models.ClassificationResult, error) {
+func Classify(ctx context.Context, txn *models.Transaction) (*models.ClassificationResult, error) {
 	// ── Pre-ML Deterministic Intercept ─────────────────────────────────────
 	// Check for codes that are definitionally unambiguous hard declines.
 	// The ML model can miscalibrate on rare codes — we never retry these.
@@ -103,7 +104,13 @@ func Classify(txn *models.Transaction) (*models.ClassificationResult, error) {
 		return nil, fmt.Errorf("failed to marshal transaction for ML service: %v", err)
 	}
 
-	resp, err := httpClient.Post(endpoint, "application/json", bytes.NewBuffer(reqBody))
+	req, err := http.NewRequestWithContext(ctx, http.MethodPost, endpoint, bytes.NewBuffer(reqBody))
+	if err != nil {
+		return nil, fmt.Errorf("failed to create request for ML service: %v", err)
+	}
+	req.Header.Set("Content-Type", "application/json")
+
+	resp, err := httpClient.Do(req)
 	if err != nil {
 		return nil, fmt.Errorf("failed to call ML service: %v", err)
 	}

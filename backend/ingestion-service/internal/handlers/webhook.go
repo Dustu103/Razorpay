@@ -69,6 +69,10 @@ func (h *WebhookHandler) Handle(c *fiber.Ctx) error {
 		RetryCountSoFar:           pd.RetryCount,
 		MandateNotificationSentAt: mandateSentAt,
 		DebitScheduledAt:          debitAt,
+		PaymentRail:               pd.PaymentRail,
+		ProductType:               pd.ProductType,
+		ConsecutiveFailureCount:   pd.ConsecutiveFailureCount,
+		DaysSinceDueDate:          pd.DaysSinceDueDate,
 	}
 
 	ctx := context.Background()

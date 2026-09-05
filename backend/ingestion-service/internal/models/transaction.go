@@ -29,6 +29,10 @@ type PaymentData struct {
 	RetryCount                int      `json:"retry_count"`
 	MandateNotificationSentAt *string  `json:"mandate_notification_sent_at"` // RFC3339 or null
 	DebitScheduledAt          *string  `json:"debit_scheduled_at"`           // RFC3339 or null
+	PaymentRail               *string  `json:"payment_rail,omitempty"`       // "nach" | "upi" | "card"
+	ProductType               *string  `json:"product_type,omitempty"`       // "sip" | "loan_emi" | "insurance_premium"
+	ConsecutiveFailureCount   *int     `json:"consecutive_failure_count,omitempty"`
+	DaysSinceDueDate          *int     `json:"days_since_due_date,omitempty"`
 }
 
 // Transaction is the normalised row written to the DB.
@@ -43,6 +47,10 @@ type Transaction struct {
 	RetryCountSoFar            int        `json:"retry_count_so_far"`
 	MandateNotificationSentAt  *time.Time `json:"mandate_notification_sent_at"`
 	DebitScheduledAt           *time.Time `json:"debit_scheduled_at"`
+	PaymentRail                *string    `json:"payment_rail,omitempty"`
+	ProductType                *string    `json:"product_type,omitempty"`
+	ConsecutiveFailureCount    *int       `json:"consecutive_failure_count,omitempty"`
+	DaysSinceDueDate           *int       `json:"days_since_due_date,omitempty"`
 	CreatedAt                  time.Time  `json:"created_at"`
 }
 

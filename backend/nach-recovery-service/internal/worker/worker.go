@@ -12,10 +12,11 @@ import (
 )
 
 type Worker struct {
-	db      *db.DB
-	mu      sync.RWMutex
-	metrics models.NACHMetricsResponse
-	stopCh  chan struct{}
+	db            *db.DB
+	mu            sync.RWMutex
+	metrics       models.NACHMetricsResponse
+	evaluatedTxns map[string]struct{}
+	stopCh        chan struct{}
 }
 
 func New(database *db.DB) *Worker {
@@ -74,7 +75,8 @@ func New(database *db.DB) *Worker {
 				},
 			},
 		},
-		stopCh: make(chan struct{}),
+		evaluatedTxns: make(map[string]struct{}),
+		stopCh:        make(chan struct{}),
 	}
 }
 
@@ -147,6 +149,13 @@ func (w *Worker) pollAndProcess(ctx context.Context) {
 	}
 
 	for _, txn := range txns {
+		w.mu.RLock()
+		_, already := w.evaluatedTxns[txn.ID]
+		w.mu.RUnlock()
+		if already {
+			continue
+		}
+
 		req := models.EvaluationRequest{
 			TransactionID:           txn.ID,
 			PaymentRail:             txn.PaymentRail,
@@ -157,5 +166,9 @@ func (w *Worker) pollAndProcess(ctx context.Context) {
 			DaysSinceDueDate:        txn.DaysSinceDueDate,
 		}
 		w.Evaluate(&req)
+
+		w.mu.Lock()
+		w.evaluatedTxns[txn.ID] = struct{}{}
+		w.mu.Unlock()
 	}
 }

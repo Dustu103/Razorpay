@@ -39,8 +39,9 @@ func (d *DB) UpsertTransaction(ctx context.Context, t *models.Transaction) (id s
 		INSERT INTO transactions (
 			gateway_transaction_id, status_code, npci_response_code,
 			bank_response_code, amount, customer_bank, retry_count_so_far,
-			mandate_notification_sent_at, debit_scheduled_at
-		) VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9)
+			mandate_notification_sent_at, debit_scheduled_at,
+			payment_rail, product_type, consecutive_failure_count, days_since_due_date
+		) VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12, $13)
 		ON CONFLICT (gateway_transaction_id) DO NOTHING
 		RETURNING id`
 
@@ -54,6 +55,10 @@ func (d *DB) UpsertTransaction(ctx context.Context, t *models.Transaction) (id s
 		t.RetryCountSoFar,
 		t.MandateNotificationSentAt,
 		t.DebitScheduledAt,
+		t.PaymentRail,
+		t.ProductType,
+		t.ConsecutiveFailureCount,
+		t.DaysSinceDueDate,
 	).Scan(&id)
 
 	if err != nil {

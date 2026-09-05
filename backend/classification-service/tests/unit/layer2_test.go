@@ -1,6 +1,7 @@
 package unit
 
 import (
+	"context"
 	"net/http"
 	"net/http/httptest"
 	"os"
@@ -33,7 +34,7 @@ func TestLayer2_Classify_Mocked(t *testing.T) {
 		ID: "txn-l2-1",
 	}
 
-	res, err := layer2.Classify(txn)
+	res, err := layer2.Classify(context.Background(), txn)
 	if err != nil {
 		t.Fatalf("Expected no error, got %v", err)
 	}
