@@ -263,10 +263,13 @@ services:
       - "3010:3000"
     environment:
       AUDIT_SERVICE_URL: http://audit-service:3003
+      INGESTION_SERVICE_URL: http://ingestion-service:3001
       NODE_ENV: production
       HOSTNAME: "0.0.0.0"
     depends_on:
       audit-service:
+        condition: service_healthy
+      ingestion-service:
         condition: service_healthy
 
 volumes:
