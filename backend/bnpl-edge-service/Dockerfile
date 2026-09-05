@@ -9,6 +9,7 @@ COPY . .
 RUN go build -o main ./cmd/server
 
 FROM alpine:latest
+RUN apk add --no-cache wget
 WORKDIR /app
 COPY --from=builder /app/main .
 

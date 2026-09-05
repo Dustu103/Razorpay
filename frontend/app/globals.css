@@ -5,19 +5,26 @@
   /* Core Backgrounds (Dark Violet/Midnight) */
   --bg:           #05050B;
   --bg-2:         #0A0A14;
-  --bg-card:      rgba(255,255,255,0.02);
-  --bg-card-hover:rgba(255,255,255,0.04);
+  --surface:      #0d0d1a;
+  --surface-2:    #131326;
+  --bg-card:      rgba(255,255,255,0.03);
+  --bg-card-hover:rgba(255,255,255,0.06);
+  --card:         #0d0d1a;
   
   /* Borders */
-  --border:       rgba(255,255,255,0.05);
-  --border-bright:rgba(129, 140, 248, 0.2); /* Indigo hint */
+  --border:       rgba(255,255,255,0.08);
+  --border-bright:rgba(129, 140, 248, 0.25); /* Indigo hint */
   
   /* Typography */
+  --text:         #F8FAFC;
   --text-primary: #F8FAFC;
   --text-muted:   #94A3B8;
   --text-dim:     #475569;
 
   /* Accent Colors (Tailored HSL for dark theme) */
+  --cyan:         #38BDF8;
+  --cyan-glow:    rgba(56, 189, 248, 0.3);
+  --cyan-dim:     rgba(56, 189, 248, 0.1);
   --indigo:       #818CF8;
   --indigo-glow:  rgba(129, 140, 248, 0.3);
   --indigo-dim:   rgba(129, 140, 248, 0.1);

@@ -1,6 +1,7 @@
 import Link from 'next/link';
 import { fetchClassifications, formatAmount, formatDate } from '@/lib/api';
 import type { ClassificationView, Cause } from '@/types/classification';
+import PillarGrid from '@/components/PillarGrid';
 import FilterBar from '@/components/FilterBar';
 import SimulatorPanel from '@/components/SimulatorPanel';
 import DropOffFunnel from '@/components/DropOffFunnel';
@@ -51,17 +52,23 @@ export default async function TransactionListPage({ searchParams }: Props) {
 
   return (
     <>
-      <div className="page-header">
-        <h1 className="page-title">Transaction Classifications</h1>
+      <div className="page-header" style={{ marginBottom: '1.75rem' }}>
+        <h1 className="page-title">Executive Mission Control</h1>
         <p className="page-sub">
-          Live audit trail for payment failure root-cause classification
+          9-Pillar Autonomous Revenue Recovery Engine telemetry, live failure simulators, and transaction root-cause audit trail.
           {cause && <><span className="page-sub-dot" /> Filtered: {cause}</>}
         </p>
       </div>
 
+      {/* 9-Pillar Executive Matrix */}
+      <PillarGrid />
+
+      {/* Causal Drop-Off Funnel */}
       <DropOffFunnel />
 
-      <h2 style={{ fontSize: '1.25rem', fontWeight: 600, color: 'var(--text)', marginBottom: '1rem', marginTop: '1rem', paddingLeft: '4px' }}>Post-Gateway Classifications</h2>
+      <h2 id="classifications-table" style={{ fontSize: '1.25rem', fontWeight: 600, color: 'var(--text)', marginBottom: '1rem', marginTop: '2rem', paddingLeft: '4px' }}>
+        Live Ingestion & Multi-Layer MoE Audit Log
+      </h2>
 
       {/* Stats row */}
       <div className="stats-row">
